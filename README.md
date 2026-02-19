@@ -102,7 +102,7 @@ INSERT INTO recruiters (name, email) VALUES ('Your Name', 'your@email.com');
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) - you'll be redirected to `/login`
+Open [http://localhost:3100](http://localhost:3100) - you'll be redirected to `/login`
 
 ### 7. Login
 

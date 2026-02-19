@@ -1,39 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getApplication, updateApplication, deleteApplication } from '@/lib/queries'
+import { withApiHandler } from '@/lib/api-handler'
 
+// Next.js 15: params may be a Promise; use: const { id } = await params
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
+  return withApiHandler(async () => {
     const application = await getApplication(params.id)
     return NextResponse.json(application)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  })
 }
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
+  return withApiHandler(async () => {
     const body = await request.json()
     const application = await updateApplication(params.id, body)
     return NextResponse.json(application)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  })
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
+  return withApiHandler(async () => {
     await deleteApplication(params.id)
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  })
 }

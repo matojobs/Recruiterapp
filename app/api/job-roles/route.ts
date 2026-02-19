@@ -1,21 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createJobRole, getJobRoles } from '@/lib/queries'
+import { withApiHandler } from '@/lib/api-handler'
 
 export async function GET() {
-  try {
+  return withApiHandler(async () => {
     const jobRoles = await getJobRoles()
     return NextResponse.json(jobRoles)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  })
 }
 
 export async function POST(request: NextRequest) {
-  try {
+  return withApiHandler(async () => {
     const body = await request.json()
     const jobRole = await createJobRole(body)
     return NextResponse.json(jobRole, { status: 201 })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  })
 }

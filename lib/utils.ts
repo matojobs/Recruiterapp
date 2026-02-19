@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import type { Application, PipelineFlow } from '@/types/database'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -66,4 +67,19 @@ export function formatJoinedAge(days: number): string {
   if (months === 1 && remainingDays === 0) return '1 month ago'
   if (remainingDays === 0) return `${months} months ago`
   return `${months}m ${remainingDays}d ago`
+}
+
+/** Compute pipeline flow counts from a list of applications (single source of truth). */
+export function computePipelineFlowFromApplications(applications: Application[]): PipelineFlow {
+  return {
+    sourced: applications.length,
+    callDone: applications.filter((app) => app.call_date != null).length,
+    connected: applications.filter((app) => app.call_status === 'Connected').length,
+    interested: applications.filter((app) => app.interested_status === 'Yes').length,
+    notInterested: applications.filter((app) => app.interested_status === 'No').length,
+    interviewScheduled: applications.filter((app) => app.interview_scheduled).length,
+    interviewDone: applications.filter((app) => app.interview_status === 'Done').length,
+    selected: applications.filter((app) => app.selection_status === 'Selected').length,
+    joined: applications.filter((app) => app.joining_status === 'Joined').length,
+  }
 }

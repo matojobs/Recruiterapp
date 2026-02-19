@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
-import { localDB } from '@/lib/local-db'
+import { getCurrentUser } from '@/lib/auth-helper'
 import Sidebar from '@/components/layout/Sidebar'
 import Header from '@/components/layout/Header'
 
@@ -14,11 +14,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   useEffect(() => {
     async function checkAuth() {
       try {
-        // Initialize local data
-        const { initializeLocalData } = await import('@/lib/local-storage')
-        initializeLocalData()
-
-        const currentUser = await localDB.getCurrentUser()
+        const currentUser = await getCurrentUser()
         const isLoginPage = pathname?.startsWith('/login')
         
         if (!currentUser && !isLoginPage) {

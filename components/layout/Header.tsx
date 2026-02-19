@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { localDB } from '@/lib/local-db'
-import { getApplications } from '@/lib/local-queries'
+import { getApplications, clearAuthToken } from '@/lib/data'
+import { getCurrentUser, getCurrentRecruiter } from '@/lib/auth-helper'
 import { useNotifications } from '@/hooks/useNotifications'
 import Button from '@/components/ui/Button'
 import NotificationsDropdown from '@/components/notifications/NotificationsDropdown'
@@ -21,10 +21,10 @@ export default function Header() {
   useEffect(() => {
     async function loadRecruiter() {
       try {
-        const currentUser = await localDB.getCurrentUser()
+        const currentUser = await getCurrentUser()
         if (currentUser) {
           setRecruiterId(currentUser.recruiter_id)
-          const recruiter = await localDB.getRecruiterByEmail(currentUser.email)
+          const recruiter = await getCurrentRecruiter()
           if (recruiter) {
             setRecruiterName(recruiter.name)
           }
@@ -42,7 +42,10 @@ export default function Header() {
   }, [])
 
   async function handleLogout() {
-    await localDB.signOut()
+    clearAuthToken()
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('current_user')
+    }
     router.push('/login')
     router.refresh()
   }

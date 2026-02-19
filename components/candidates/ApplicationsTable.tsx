@@ -49,7 +49,7 @@ export default function ApplicationsTable({ applications, onUpdate }: Applicatio
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(1)
     }
-  }, [applications.length, totalPages])
+  }, [currentPage, applications.length, totalPages])
 
   function handleEdit(app: Application) {
     setEditingApplication(app)

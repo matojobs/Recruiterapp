@@ -38,7 +38,6 @@ export default function AddApplicationModal({
     job_role_id: '',
     company_id: '',
     assigned_date: '',
-    recruiter_id: '',
     call_date: '',
     call_status: '',
     interested_status: '',
@@ -76,7 +75,6 @@ export default function AddApplicationModal({
         job_role_id: '',
         company_id: '',
         assigned_date: new Date().toISOString().split('T')[0],
-        recruiter_id: '',
         call_date: '',
         call_status: '',
         interested_status: '',
@@ -109,7 +107,6 @@ export default function AddApplicationModal({
         portal: formData.portal || null,
         job_role_id: formData.job_role_id || null,
         assigned_date: formData.assigned_date || null,
-        recruiter_id: formData.recruiter_id || null,
         candidate_id: candidate.id,
         call_date: formData.call_date || null,
         call_status: formData.call_status || null,
@@ -223,12 +220,6 @@ export default function AddApplicationModal({
                 type="date"
                 value={formData.assigned_date}
                 onChange={(e) => setFormData({ ...formData, assigned_date: e.target.value })}
-              />
-              <Select
-                label="Recruiter"
-                value={formData.recruiter_id}
-                onChange={(e) => setFormData({ ...formData, recruiter_id: e.target.value })}
-                options={recruiters.map((r) => ({ value: r.id, label: r.name }))}
               />
               <Input
                 label="Call Date"

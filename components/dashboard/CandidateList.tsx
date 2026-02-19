@@ -21,7 +21,7 @@ export default function CandidateList({ applications }: CandidateListProps) {
 
   // Group applications by status for better organization
   const groupedByStatus = {
-    joined: applications.filter((app) => app.joining_status === 'Joined' && app.joining_status !== 'Backed Out'),
+    joined: applications.filter((app) => app.joining_status === 'Joined'),
     backedOut: applications.filter((app) => app.joining_status === 'Backed Out'),
     selected: applications.filter(
       (app) => app.selection_status === 'Selected' && app.joining_status !== 'Joined' && app.joining_status !== 'Backed Out'

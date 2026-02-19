@@ -1,0 +1,46 @@
+---
+description: Maintain project activity log when making substantive changes
+alwaysApply: true
+---
+
+# Activity Log Guard Rail
+
+When you complete **substantive work** on this project, append an entry to `docs/ACTIVITY_LOG.md`.
+
+## When to update
+
+Update the log when you:
+
+- Add or change a **feature** (UI, API, behavior)
+- Fix a **bug** that affects behavior or correctness
+- **Refactor** non-trivial code or rename important symbols
+- Change **config** (env, build, Next.js, Supabase, etc.)
+- Change **schema** or SQL (tables, migrations)
+- Add or change **docs** that affect how the project is used or run
+- Do a **chore** that future maintainers should know (e.g. adding this rule)
+
+Do **not** log: trivial typo fixes, comment-only edits, or formatting-only changes.
+
+## Entry format
+
+Add **one entry** at the **top** of the "Entries" section in `docs/ACTIVITY_LOG.md`:
+
+```markdown
+### YYYY-MM-DD — `type` — Short summary
+
+- **Summary:** One-line description.
+- **Details:** (optional) Key files, API/schema impact, breaking changes.
+```
+
+**Type** must be one of: `feature` | `fix` | `refactor` | `config` | `schema` | `docs` | `chore`.
+
+## Example
+
+```markdown
+### 2025-02-18 — `feature` — Export candidates to Excel
+
+- **Summary:** Added export button on Candidates page that downloads filtered rows as .xlsx.
+- **Details:** `app/candidates/page.tsx`, `lib/export-utils.ts`; uses `xlsx` package.
+```
+
+Keep entries brief. One log update per logical change (or batch of related small changes).

@@ -13,7 +13,7 @@ npm run dev
 ### 2. Open in Browser
 
 The app will automatically open at:
-- **http://localhost:3000** (or next available port like 3001, 3002)
+- **http://localhost:3100** (or next available port like 3101, 3102)
 
 If port 3000 is busy, Next.js will use the next available port and show you the URL.
 
@@ -45,7 +45,7 @@ Other test accounts:
 **Can't access localhost?**
 - Make sure the dev server is running (`npm run dev`)
 - Check the terminal for the correct port number
-- Try: `http://127.0.0.1:3000` instead of `localhost:3000`
+- Try: `http://127.0.0.1:3100` instead of `localhost:3100`
 
 **Data not loading?**
 - The app uses localStorage (browser storage)

@@ -6,35 +6,31 @@ import PipelineFlow from '@/components/dashboard/PipelineFlow'
 import CandidateList from '@/components/dashboard/CandidateList'
 import SystemAgeStats from '@/components/dashboard/SystemAgeStats'
 import JoinedAgeStats from '@/components/dashboard/JoinedAgeStats'
-import { localDB } from '@/lib/local-db'
-import { getDashboardStats, getPipelineFlow, getApplications } from '@/lib/local-queries'
-import type { DashboardStats, PipelineFlow, Application, Recruiter } from '@/types/database'
+import { getDashboardStats, getPipelineFlow, getApplications } from '@/lib/data'
+import { getCurrentUser, getCurrentRecruiter } from '@/lib/auth-helper'
+import type { DashboardStats, PipelineFlow as PipelineFlowType, Application, Recruiter } from '@/types/database'
 
 export default function DashboardPageClient() {
   const [recruiter, setRecruiter] = useState<Recruiter | null>(null)
   const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [flow, setFlow] = useState<PipelineFlow | null>(null)
+  const [flow, setFlow] = useState<PipelineFlowType | null>(null)
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function loadData() {
       try {
-        // Initialize local data
-        const { initializeLocalData } = await import('@/lib/local-storage')
-        initializeLocalData()
-
         // Get current user
-        const currentUser = await localDB.getCurrentUser()
+        const currentUser = await getCurrentUser()
         if (!currentUser) {
           window.location.href = '/login'
           return
         }
 
         // Get recruiter
-        const recruiterData = await localDB.getRecruiterByEmail(currentUser.email)
+        const recruiterData = await getCurrentRecruiter()
         if (recruiterData) {
-          setRecruiter(recruiterData)
+          setRecruiter(recruiterData as any)
         }
 
         // Load dashboard data

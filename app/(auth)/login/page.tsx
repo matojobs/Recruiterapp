@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { localDB } from '@/lib/local-db'
+import { login } from '@/lib/data'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 
@@ -13,31 +13,36 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const router = useRouter()
 
-  useEffect(() => {
-    // Initialize local data
-    if (typeof window !== 'undefined') {
-      import('@/lib/local-storage').then(({ initializeLocalData }) => {
-        initializeLocalData()
-      })
-    }
-  }, [])
-
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
+    console.log('🔵 Form submitted - handleLogin called', { email, password: password ? '***' : 'empty' })
     setLoading(true)
     setError('')
 
     try {
-      // Local mode - simple password check (any password works)
-      const result = await localDB.signIn(email, password)
+      console.log('🚀 Login attempt - calling login function:', { email })
+      // Always use backend API
+      console.log('📞 About to call login() from @/lib/data')
+      const result = await login(email, password)
+      console.log('✅ Login result received:', { hasToken: !!result.accessToken, hasUser: !!result.user })
       
-      if (result.user && result.recruiter) {
+      if (result.accessToken && result.user && result.user.id) {
+        // Store recruiter info for dashboard
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('current_user', JSON.stringify({
+            email: result.user.email,
+            recruiter_id: String(result.user.id),
+          }))
+        }
+        console.log('📝 User stored, redirecting to dashboard')
         router.push('/dashboard')
         router.refresh()
       } else {
-        setError('Invalid credentials')
+        console.error('❌ Invalid response format - missing required fields:', result)
+        setError('Invalid response from server. Please try again.')
       }
     } catch (err: any) {
+      console.error('❌ Login error:', err)
       setError(err.message || 'Failed to login')
     } finally {
       setLoading(false)
@@ -78,16 +83,18 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              placeholder="Any password works in local mode"
             />
-            <p className="text-xs text-gray-500">
-              Local Mode: Use <strong>john@recruiter.com</strong>, <strong>jane@recruiter.com</strong>, or <strong>mike@recruiter.com</strong>
-              <br />
-              Password: Any password works
-            </p>
           </div>
           <div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={loading}
+              onClick={(e) => {
+                console.log('🟢 Button clicked!', { loading, email: email ? 'filled' : 'empty' })
+                // Don't prevent default - let form handle it
+              }}
+            >
               {loading ? 'Signing in...' : 'Sign in'}
             </Button>
           </div>

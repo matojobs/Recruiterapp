@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { getApplications, getRecruiters, getCompanies, getJobRoles, getPipelineFlow, updateApplication } from '@/lib/local-queries'
-import type { Application, Recruiter, Company, JobRole, PipelineFlow } from '@/types/database'
-import { calculateJoinedAge, formatJoinedAge } from '@/lib/utils'
+import { useEffect, useState, useCallback } from 'react'
+import { getApplications, getRecruiters, getCompanies, getJobRoles, getPipelineFlow, updateApplication } from '@/lib/data'
+import type { Application, ApplicationFilters, Recruiter, Company, JobRole, PipelineFlow } from '@/types/database'
+import { EMPTY_PIPELINE_FLOW } from '@/types/database'
+import { calculateJoinedAge, formatJoinedAge, computePipelineFlowFromApplications } from '@/lib/utils'
 import ApplicationsTable from '@/components/candidates/ApplicationsTable'
 import Filters from '@/components/candidates/Filters'
 import FlowTracking from '@/components/candidates/FlowTracking'
@@ -16,56 +17,18 @@ export default function CandidatesPage() {
   const [recruiters, setRecruiters] = useState<Recruiter[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [jobRoles, setJobRoles] = useState<JobRole[]>([])
-  const [flow, setFlow] = useState<PipelineFlow>({
-    sourced: 0,
-    callDone: 0,
-    connected: 0,
-    interested: 0,
-    notInterested: 0,
-    interviewScheduled: 0,
-    interviewDone: 0,
-    selected: 0,
-    joined: 0,
-  })
+  const [flow, setFlow] = useState<PipelineFlow>(EMPTY_PIPELINE_FLOW)
   const [loading, setLoading] = useState(true)
-  const [filters, setFilters] = useState<any>({})
+  const [filters, setFilters] = useState<ApplicationFilters>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
 
   useEffect(() => {
-    // Initialize local data
-    import('@/lib/local-storage').then(({ initializeLocalData }) => {
-      initializeLocalData()
-      loadData()
-    })
+    loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => {
-    loadApplications()
-  }, [filters, searchQuery])
-
-  useEffect(() => {
-    if (applications.length > 0 || Object.keys(filters).length === 0) {
-      loadFlow()
-    }
-  }, [applications, filters])
-
-  async function loadData() {
-    try {
-      const [recs, comps, roles] = await Promise.all([
-        getRecruiters(),
-        getCompanies(),
-        getJobRoles(),
-      ])
-      setRecruiters(recs)
-      setCompanies(comps)
-      setJobRoles(roles)
-    } catch (error) {
-      console.error('Error loading data:', error)
-    }
-  }
-
-  async function loadApplications() {
+  const loadApplications = useCallback(async () => {
     try {
       setLoading(true)
       // Create filters without company_id (will filter client-side)
@@ -74,7 +37,7 @@ export default function CandidatesPage() {
       
       // Filter by company_id client-side if provided
       if (company_id) {
-        data = data.filter((app) => (app.job_role as any)?.company?.id === company_id)
+        data = data.filter((app) => app.job_role?.company?.id === company_id)
       }
       
       // Apply search filter
@@ -84,8 +47,8 @@ export default function CandidatesPage() {
           const candidateName = app.candidate?.candidate_name?.toLowerCase() || ''
           const phone = app.candidate?.phone?.toLowerCase() || ''
           const email = app.candidate?.email?.toLowerCase() || ''
-          const jobRole = (app.job_role as any)?.job_role?.toLowerCase() || ''
-          const company = (app.job_role as any)?.company?.company_name?.toLowerCase() || ''
+          const jobRole = app.job_role?.job_role?.toLowerCase() || ''
+          const company = app.job_role?.company?.company_name?.toLowerCase() || ''
           const portal = app.portal?.toLowerCase() || ''
           
           return (
@@ -105,9 +68,9 @@ export default function CandidatesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filters, searchQuery])
 
-  async function loadFlow() {
+  const loadFlow = useCallback(async () => {
     try {
       // Create filters without company_id (will calculate client-side)
       const { company_id, ...serverFilters } = filters
@@ -115,22 +78,9 @@ export default function CandidatesPage() {
       
       // If company_id filter is active, recalculate flow from current applications
       if (company_id) {
-        const filteredApps = applications.filter((app) => 
-          (app.job_role as any)?.company?.id === company_id
-        )
-        
+        const filteredApps = applications.filter((app) => app.job_role?.company?.id === company_id)
         if (filteredApps.length > 0) {
-          flowData = {
-            sourced: filteredApps.length,
-            callDone: filteredApps.filter((app) => app.call_date).length,
-            connected: filteredApps.filter((app) => app.call_status === 'Connected').length,
-            interested: filteredApps.filter((app) => app.interested_status === 'Yes').length,
-            notInterested: filteredApps.filter((app) => app.interested_status === 'No').length,
-            interviewScheduled: filteredApps.filter((app) => app.interview_scheduled).length,
-            interviewDone: filteredApps.filter((app) => app.interview_status === 'Done').length,
-            selected: filteredApps.filter((app) => app.selection_status === 'Selected').length,
-            joined: filteredApps.filter((app) => app.joining_status === 'Joined').length,
-          }
+          flowData = computePipelineFlowFromApplications(filteredApps)
         }
       }
       
@@ -138,11 +88,36 @@ export default function CandidatesPage() {
     } catch (error) {
       console.error('Error loading flow:', error)
     }
+  }, [filters, applications])
+
+  useEffect(() => {
+    loadApplications()
+  }, [loadApplications])
+
+  useEffect(() => {
+    if (applications.length > 0 || Object.keys(filters).length === 0) {
+      loadFlow()
+    }
+  }, [loadFlow, applications.length, filters])
+
+  async function loadData() {
+    try {
+      const [recs, comps, roles] = await Promise.all([
+        getRecruiters(),
+        getCompanies(),
+        getJobRoles(),
+      ])
+      setRecruiters(recs)
+      setCompanies(comps)
+      setJobRoles(roles)
+    } catch (error) {
+      console.error('Error loading data:', error)
+    }
   }
 
   async function handleUpdate(id: string, updates: Partial<Application>) {
     try {
-      const { updateApplication } = await import('@/lib/local-queries')
+      const { updateApplication } = await import('@/lib/data')
       await updateApplication(id, updates)
       // Reload applications and flow immediately
       await Promise.all([
@@ -158,7 +133,7 @@ export default function CandidatesPage() {
 
   async function handleAddApplication(applicationData: any) {
     try {
-      const { createApplication } = await import('@/lib/local-queries')
+      const { createApplication } = await import('@/lib/data')
       await createApplication(applicationData)
       await loadApplications()
       // Flow will update automatically via useEffect
@@ -245,7 +220,7 @@ export default function CandidatesPage() {
         </div>
         {searchQuery && (
           <p className="text-sm text-gray-500 mt-2">
-            Found {applications.length} candidate{applications.length !== 1 ? 's' : ''} matching "{searchQuery}"
+            Found {applications.length} candidate{applications.length !== 1 ? 's' : ''} matching &quot;{searchQuery}&quot;
           </p>
         )}
       </div>

@@ -2,17 +2,14 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { localDB } from '@/lib/local-db'
+import { getCurrentUser } from '@/lib/auth-helper'
 
 export default function Home() {
   const router = useRouter()
 
   useEffect(() => {
     async function checkAuth() {
-      const { initializeLocalData } = await import('@/lib/local-storage')
-      initializeLocalData()
-      
-      const currentUser = await localDB.getCurrentUser()
+      const currentUser = await getCurrentUser()
       if (currentUser) {
         router.push('/dashboard')
       } else {

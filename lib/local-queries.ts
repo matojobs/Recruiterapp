@@ -6,6 +6,7 @@ import type {
   JobRole,
   Candidate,
   Application,
+  ApplicationFilters,
   DashboardStats,
   PipelineFlow,
 } from '@/types/database'
@@ -44,6 +45,13 @@ export async function getJobRoles(): Promise<JobRole[]> {
   throw new Error('Supabase not configured')
 }
 
+export async function createJobRole(jobRole: Omit<JobRole, 'id' | 'created_at' | 'updated_at' | 'company'>): Promise<JobRole> {
+  if (USE_LOCAL_MODE) {
+    return localDB.createJobRole(jobRole)
+  }
+  throw new Error('Supabase not configured')
+}
+
 export async function getCandidates(): Promise<Candidate[]> {
   if (USE_LOCAL_MODE) {
     return localDB.getCandidates()
@@ -58,14 +66,21 @@ export async function createCandidate(candidate: Omit<Candidate, 'id' | 'created
   throw new Error('Supabase not configured')
 }
 
-export async function getApplications(filters?: any): Promise<Application[]> {
+export async function getApplications(filters?: ApplicationFilters): Promise<Application[]> {
   if (USE_LOCAL_MODE) {
     return localDB.getApplications(filters)
   }
   throw new Error('Supabase not configured')
 }
 
-export async function createApplication(application: any): Promise<Application> {
+export async function getApplication(id: string): Promise<Application> {
+  if (USE_LOCAL_MODE) {
+    return localDB.getApplication(id)
+  }
+  throw new Error('Supabase not configured')
+}
+
+export async function createApplication(application: Omit<Application, 'id' | 'created_at' | 'updated_at' | 'recruiter' | 'candidate' | 'job_role'>): Promise<Application> {
   if (USE_LOCAL_MODE) {
     return localDB.createApplication(application)
   }
@@ -93,7 +108,7 @@ export async function getDashboardStats(recruiterId?: string): Promise<Dashboard
   throw new Error('Supabase not configured')
 }
 
-export async function getPipelineFlow(filters?: any): Promise<PipelineFlow> {
+export async function getPipelineFlow(filters?: ApplicationFilters): Promise<PipelineFlow> {
   if (USE_LOCAL_MODE) {
     return localDB.getPipelineFlow(filters)
   }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getJobRoles, getCompanies } from '@/lib/local-queries'
+import { getJobRoles, getCompanies } from '@/lib/data'
 import type { JobRole, Company } from '@/types/database'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -18,11 +18,7 @@ export default function JobsPage() {
   })
 
   useEffect(() => {
-    // Initialize local data
-    import('@/lib/local-storage').then(({ initializeLocalData }) => {
-      initializeLocalData()
-      loadData()
-    })
+    loadData()
   }, [])
 
   async function loadData() {

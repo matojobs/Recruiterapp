@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getApplications, getRecruiters, getCompanies, getPipelineFlow } from '@/lib/local-queries'
+import { getApplications, getRecruiters, getCompanies, getPipelineFlow } from '@/lib/data'
 import type { Application, Recruiter, Company, PipelineFlow } from '@/types/database'
+import { EMPTY_PIPELINE_FLOW } from '@/types/database'
 import { calculatePercentage } from '@/lib/utils'
 import Button from '@/components/ui/Button'
 import * as XLSX from 'xlsx'
@@ -11,27 +12,13 @@ export default function ReportsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [recruiters, setRecruiters] = useState<Recruiter[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
-  const [flow, setFlow] = useState<PipelineFlow>({
-    sourced: 0,
-    callDone: 0,
-    connected: 0,
-    interested: 0,
-    notInterested: 0,
-    interviewScheduled: 0,
-    interviewDone: 0,
-    selected: 0,
-    joined: 0,
-  })
+  const [flow, setFlow] = useState<PipelineFlow>(EMPTY_PIPELINE_FLOW)
   // Removed recruiter performance for local mode
   const [loading, setLoading] = useState(true)
   const [selectedReport, setSelectedReport] = useState<'pipeline' | 'recruiter' | 'company'>('pipeline')
 
   useEffect(() => {
-    // Initialize local data
-    import('@/lib/local-storage').then(({ initializeLocalData }) => {
-      initializeLocalData()
-      loadData()
-    })
+    loadData()
   }, [])
 
   async function loadData() {
@@ -63,7 +50,7 @@ export default function ReportsPage() {
     }>()
 
     applications.forEach((app) => {
-      const companyName = (app.job_role as any)?.company?.company_name || 'Unknown'
+      const companyName = app.job_role?.company?.company_name || 'Unknown'
       if (!companyMap.has(companyName)) {
         companyMap.set(companyName, {
           name: companyName,

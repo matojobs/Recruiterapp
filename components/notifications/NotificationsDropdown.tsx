@@ -133,7 +133,7 @@ export default function NotificationsDropdown({
                   />
                 </svg>
                 <p className="text-sm">No notifications</p>
-                <p className="text-xs text-gray-400 mt-1">You're all caught up!</p>
+                <p className="text-xs text-gray-400 mt-1">You&apos;re all caught up!</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100">

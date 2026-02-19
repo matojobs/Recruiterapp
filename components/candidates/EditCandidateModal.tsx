@@ -44,7 +44,7 @@ export default function EditCandidateModal({
         hiring_manager_feedback: application.hiring_manager_feedback || '',
         followup_date: application.followup_date || '',
         notes: application.notes || '',
-      })
+      } as Partial<Application>)
     }
   }, [application])
 
@@ -62,9 +62,9 @@ export default function EditCandidateModal({
         updates[key] = value === '' ? null : value
       })
 
-      // Handle boolean fields
-      updates.interview_scheduled = formData.interview_scheduled === true || formData.interview_scheduled === 'Yes'
-      updates.turnup = formData.turnup === true || formData.turnup === 'Yes'
+      // Handle boolean fields (form may have boolean or string 'Yes')
+      updates.interview_scheduled = formData.interview_scheduled === true || (formData.interview_scheduled as unknown) === 'Yes'
+      updates.turnup = formData.turnup === true || (formData.turnup as unknown) === 'Yes'
 
       await onSave(application.id, updates)
       onClose()

@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import type {
   Application,
+  ApplicationFilters,
   Recruiter,
   Company,
   JobRole,
@@ -9,6 +10,14 @@ import type {
   PipelineFlow,
   RecruiterPerformance,
 } from '@/types/database'
+
+/** Single source of truth for applications select (with relations). */
+const APPLICATIONS_SELECT = `
+  *,
+  recruiter:recruiters(*),
+  candidate:candidates(*),
+  job_role:job_roles(*, company:companies(*))
+`
 
 // Recruiters
 export async function getRecruiters() {
@@ -99,27 +108,10 @@ export async function createCandidate(candidate: Omit<Candidate, 'id' | 'created
 }
 
 // Applications
-export async function getApplications(filters?: {
-  recruiter_id?: string
-  company_id?: string
-  job_role_id?: string
-  portal?: string
-  call_status?: string
-  interested_status?: string
-  interview_status?: string
-  selection_status?: string
-  joining_status?: string
-  date_from?: string
-  date_to?: string
-}) {
+export async function getApplications(filters?: ApplicationFilters) {
   let query = supabase
     .from('applications')
-    .select(`
-      *,
-      recruiter:recruiters(*),
-      candidate:candidates(*),
-      job_role:job_roles(*, company:companies(*))
-    `)
+    .select(APPLICATIONS_SELECT)
     .order('created_at', { ascending: false })
 
   if (filters?.recruiter_id) {
@@ -164,12 +156,7 @@ export async function getApplications(filters?: {
 export async function getApplication(id: string) {
   const { data, error } = await supabase
     .from('applications')
-    .select(`
-      *,
-      recruiter:recruiters(*),
-      candidate:candidates(*),
-      job_role:job_roles(*, company:companies(*))
-    `)
+    .select(APPLICATIONS_SELECT)
     .eq('id', id)
     .single()
   
@@ -181,12 +168,7 @@ export async function createApplication(application: Omit<Application, 'id' | 'c
   const { data, error } = await supabase
     .from('applications')
     .insert([application])
-    .select(`
-      *,
-      recruiter:recruiters(*),
-      candidate:candidates(*),
-      job_role:job_roles(*, company:companies(*))
-    `)
+    .select(APPLICATIONS_SELECT)
     .single()
   
   if (error) throw error
@@ -198,12 +180,7 @@ export async function updateApplication(id: string, updates: Partial<Application
     .from('applications')
     .update(updates)
     .eq('id', id)
-    .select(`
-      *,
-      recruiter:recruiters(*),
-      candidate:candidates(*),
-      job_role:job_roles(*, company:companies(*))
-    `)
+    .select(APPLICATIONS_SELECT)
     .single()
   
   if (error) throw error
@@ -224,70 +201,68 @@ export async function getDashboardStats(recruiterId?: string): Promise<Dashboard
   const today = new Date().toISOString().split('T')[0]
   const thisMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
 
-  const buildQuery = () => {
-    let query = supabase.from('applications')
-    if (recruiterId) {
-      query = query.eq('recruiter_id', recruiterId)
-    }
-    return query
+  const getBase = () => {
+    const q = supabase.from('applications')
+    // @ts-expect-error Supabase typings: PostgrestQueryBuilder has .eq at runtime
+    return recruiterId ? q.eq('recruiter_id', recruiterId) : q
   }
 
   // Total sourced
-  const { count: totalSourced } = await buildQuery()
+  const { count: totalSourced } = await getBase()
     .select('*', { count: 'exact', head: true })
 
   // Calls done today
-  const { count: callsDoneToday } = await buildQuery()
-    .select('*', { count: 'exact', head: true })
+  const { count: callsDoneToday } = await getBase()
     .eq('call_date', today)
+    .select('*', { count: 'exact', head: true })
 
   // Connected today
-  const { count: connectedToday } = await buildQuery()
-    .select('*', { count: 'exact', head: true })
+  const { count: connectedToday } = await getBase()
     .eq('call_date', today)
     .eq('call_status', 'Connected')
+    .select('*', { count: 'exact', head: true })
 
   // Interested today
-  const { count: interestedToday } = await buildQuery()
-    .select('*', { count: 'exact', head: true })
+  const { count: interestedToday } = await getBase()
     .eq('call_date', today)
     .eq('interested_status', 'Yes')
+    .select('*', { count: 'exact', head: true })
 
   // Not interested today
-  const { count: notInterestedToday } = await buildQuery()
-    .select('*', { count: 'exact', head: true })
+  const { count: notInterestedToday } = await getBase()
     .eq('call_date', today)
     .eq('interested_status', 'No')
+    .select('*', { count: 'exact', head: true })
 
   // Interviews scheduled (upcoming)
-  const { count: interviewsScheduled } = await buildQuery()
-    .select('*', { count: 'exact', head: true })
+  const { count: interviewsScheduled } = await getBase()
     .eq('interview_scheduled', true)
     .gte('interview_date', today)
+    .select('*', { count: 'exact', head: true })
 
   // Interviews done today
-  const { count: interviewsDoneToday } = await buildQuery()
-    .select('*', { count: 'exact', head: true })
+  const { count: interviewsDoneToday } = await getBase()
     .eq('interview_date', today)
     .eq('interview_status', 'Done')
+    .select('*', { count: 'exact', head: true })
 
   // Selected this month
-  const { count: selectedThisMonth } = await buildQuery()
-    .select('*', { count: 'exact', head: true })
+  const { count: selectedThisMonth } = await getBase()
     .eq('selection_status', 'Selected')
     .gte('updated_at', thisMonthStart)
+    .select('*', { count: 'exact', head: true })
 
   // Joined this month
-  const { count: joinedThisMonth } = await buildQuery()
-    .select('*', { count: 'exact', head: true })
+  const { count: joinedThisMonth } = await getBase()
     .eq('joining_status', 'Joined')
     .gte('joining_date', thisMonthStart)
+    .select('*', { count: 'exact', head: true })
 
   // Pending joining
-  const { count: pendingJoining } = await buildQuery()
-    .select('*', { count: 'exact', head: true })
+  const { count: pendingJoining } = await getBase()
     .eq('selection_status', 'Selected')
     .eq('joining_status', 'Pending')
+    .select('*', { count: 'exact', head: true })
 
   return {
     totalSourced: totalSourced || 0,
@@ -310,61 +285,23 @@ export async function getPipelineFlow(filters?: {
   date_from?: string
   date_to?: string
 }): Promise<PipelineFlow> {
-  let baseQuery = supabase.from('applications').select('*', { count: 'exact', head: true })
-
-  if (filters?.recruiter_id) {
-    baseQuery = baseQuery.eq('recruiter_id', filters.recruiter_id)
-  }
-  // Note: company_id filter will be handled client-side
-  if (filters?.date_from) {
-    baseQuery = baseQuery.gte('assigned_date', filters.date_from)
-  }
-  if (filters?.date_to) {
-    baseQuery = baseQuery.lte('assigned_date', filters.date_to)
+  const getBase = () => {
+    let q: any = supabase.from('applications')
+    if (filters?.recruiter_id) q = q.eq('recruiter_id', filters.recruiter_id)
+    if (filters?.date_from) q = q.gte('assigned_date', filters.date_from)
+    if (filters?.date_to) q = q.lte('assigned_date', filters.date_to)
+    return q
   }
 
-  // Sourced
-  const { count: sourced } = await baseQuery.select('*', { count: 'exact', head: true })
-
-  // Call done
-  const { count: callDone } = await baseQuery
-    .not('call_date', 'is', null)
-    .select('*', { count: 'exact', head: true })
-
-  // Connected
-  const { count: connected } = await baseQuery
-    .eq('call_status', 'Connected')
-    .select('*', { count: 'exact', head: true })
-
-  // Interested
-  const { count: interested } = await baseQuery
-    .eq('interested_status', 'Yes')
-    .select('*', { count: 'exact', head: true })
-
-  // Not interested
-  const { count: notInterested } = await baseQuery
-    .eq('interested_status', 'No')
-    .select('*', { count: 'exact', head: true })
-
-  // Interview scheduled
-  const { count: interviewScheduled } = await baseQuery
-    .eq('interview_scheduled', true)
-    .select('*', { count: 'exact', head: true })
-
-  // Interview done
-  const { count: interviewDone } = await baseQuery
-    .eq('interview_status', 'Done')
-    .select('*', { count: 'exact', head: true })
-
-  // Selected
-  const { count: selected } = await baseQuery
-    .eq('selection_status', 'Selected')
-    .select('*', { count: 'exact', head: true })
-
-  // Joined
-  const { count: joined } = await baseQuery
-    .eq('joining_status', 'Joined')
-    .select('*', { count: 'exact', head: true })
+  const { count: sourced } = await getBase().select('*', { count: 'exact', head: true })
+  const { count: callDone } = await getBase().not('call_date', 'is', null).select('*', { count: 'exact', head: true })
+  const { count: connected } = await getBase().eq('call_status', 'Connected').select('*', { count: 'exact', head: true })
+  const { count: interested } = await getBase().eq('interested_status', 'Yes').select('*', { count: 'exact', head: true })
+  const { count: notInterested } = await getBase().eq('interested_status', 'No').select('*', { count: 'exact', head: true })
+  const { count: interviewScheduled } = await getBase().eq('interview_scheduled', true).select('*', { count: 'exact', head: true })
+  const { count: interviewDone } = await getBase().eq('interview_status', 'Done').select('*', { count: 'exact', head: true })
+  const { count: selected } = await getBase().eq('selection_status', 'Selected').select('*', { count: 'exact', head: true })
+  const { count: joined } = await getBase().eq('joining_status', 'Joined').select('*', { count: 'exact', head: true })
 
   return {
     sourced: sourced || 0,
@@ -389,14 +326,15 @@ export async function getRecruiterPerformance(): Promise<RecruiterPerformance[]>
 
   const performanceMap = new Map<string, RecruiterPerformance>()
 
-  applications.forEach((app: any) => {
+  applications.forEach((app) => {
     if (!app.recruiter_id) return
 
     const recruiterId = app.recruiter_id
+    const recruiterName = Array.isArray(app.recruiter) ? app.recruiter[0]?.name : (app.recruiter as { name?: string } | null)?.name
     if (!performanceMap.has(recruiterId)) {
       performanceMap.set(recruiterId, {
         recruiter_id: recruiterId,
-        recruiter_name: app.recruiter?.name || 'Unknown',
+        recruiter_name: recruiterName || 'Unknown',
         callsMade: 0,
         connected: 0,
         interested: 0,

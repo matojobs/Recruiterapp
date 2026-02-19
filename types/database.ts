@@ -68,6 +68,9 @@ export interface Application {
   job_role?: JobRole;
 }
 
+/** Application row as stored (no joined relations). */
+export type ApplicationRaw = Omit<Application, 'recruiter' | 'candidate' | 'job_role'>
+
 export interface DashboardStats {
   totalSourced: number;
   callsDoneToday: number;
@@ -91,6 +94,34 @@ export interface PipelineFlow {
   interviewDone: number;
   selected: number;
   joined: number;
+}
+
+/** Default empty pipeline flow; use for initial state. */
+export const EMPTY_PIPELINE_FLOW: PipelineFlow = {
+  sourced: 0,
+  callDone: 0,
+  connected: 0,
+  interested: 0,
+  notInterested: 0,
+  interviewScheduled: 0,
+  interviewDone: 0,
+  selected: 0,
+  joined: 0,
+}
+
+/** Filters for listing applications (API query params and local filter). */
+export interface ApplicationFilters {
+  recruiter_id?: string
+  company_id?: string
+  job_role_id?: string
+  portal?: string
+  call_status?: string
+  interested_status?: string
+  interview_status?: string
+  selection_status?: string
+  joining_status?: string
+  date_from?: string
+  date_to?: string
 }
 
 export interface RecruiterPerformance {

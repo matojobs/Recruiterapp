@@ -21,7 +21,7 @@ npm run dev
 ```
 
 3. **Login with dummy accounts:**
-   - Go to `http://localhost:3000` (or the port shown)
+   - Go to `http://localhost:3100` (or the port shown)
    - You'll be redirected to `/login`
    - Use any of these emails (password can be anything):
      - `john@recruiter.com`

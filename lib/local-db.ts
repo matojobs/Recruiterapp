@@ -6,9 +6,12 @@ import type {
   JobRole,
   Candidate,
   Application,
+  ApplicationFilters,
+  ApplicationRaw,
   DashboardStats,
   PipelineFlow,
 } from '@/types/database'
+import { computePipelineFlowFromApplications } from './utils'
 
 // Initialize data on import
 if (typeof window !== 'undefined') {
@@ -66,6 +69,31 @@ export const localDB = {
     }))
   },
 
+  async createJobRole(jobRole: Omit<JobRole, 'id' | 'created_at' | 'updated_at' | 'company'>): Promise<JobRole> {
+    const jobRoles = await this.getJobRoles()
+    const companies = await this.getCompanies()
+    
+    const newJobRole: JobRole = {
+      ...jobRole,
+      id: Date.now().toString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      company: companies.find((c) => c.id === jobRole.company_id),
+    }
+    
+    const rawJobRoles = LocalStorage.get<JobRole[]>('job_roles') || []
+    rawJobRoles.push({
+      id: newJobRole.id,
+      job_role: newJobRole.job_role,
+      company_id: newJobRole.company_id,
+      created_at: newJobRole.created_at,
+      updated_at: newJobRole.updated_at,
+    })
+    LocalStorage.set('job_roles', rawJobRoles)
+    
+    return newJobRole
+  },
+
   // Candidates
   async getCandidates(): Promise<Candidate[]> {
     return LocalStorage.get<Candidate[]>('candidates') || []
@@ -84,27 +112,22 @@ export const localDB = {
     return newCandidate
   },
 
-  // Applications
-  async getApplications(filters?: {
-    recruiter_id?: string
-    company_id?: string
-    job_role_id?: string
-    portal?: string
-    call_status?: string
-    interested_status?: string
-    interview_status?: string
-    selection_status?: string
-    joining_status?: string
-    date_from?: string
-    date_to?: string
-  }): Promise<Application[]> {
-    let applications = LocalStorage.get<Application[]>('applications') || []
+  // Applications — storage holds only raw rows (no relations)
+  getRawApplications(): ApplicationRaw[] {
+    const raw = LocalStorage.get<ApplicationRaw[]>('applications') || []
+    return raw.map((app) => {
+      const { recruiter, candidate, job_role, ...rest } = app as ApplicationRaw & Partial<Application>
+      return rest as ApplicationRaw
+    })
+  },
+
+  async getApplications(filters?: ApplicationFilters): Promise<Application[]> {
+    const rawRows = this.getRawApplications()
     const recruiters = await this.getRecruiters()
     const candidates = await this.getCandidates()
     const jobRoles = await this.getJobRoles()
 
-    // Join relations
-    applications = applications.map((app) => ({
+    let applications: Application[] = rawRows.map((app) => ({
       ...app,
       recruiter: recruiters.find((r) => r.id === app.recruiter_id),
       candidate: candidates.find((c) => c.id === app.candidate_id),
@@ -137,7 +160,7 @@ export const localDB = {
       applications = applications.filter((app) => app.joining_status === filters.joining_status)
     }
     if (filters?.company_id) {
-      applications = applications.filter((app) => (app.job_role as any)?.company?.id === filters.company_id)
+      applications = applications.filter((app) => app.job_role?.company?.id === filters.company_id)
     }
     if (filters?.date_from) {
       applications = applications.filter((app) => app.assigned_date && app.assigned_date >= filters.date_from!)
@@ -150,45 +173,63 @@ export const localDB = {
   },
 
   async createApplication(application: Omit<Application, 'id' | 'created_at' | 'updated_at' | 'recruiter' | 'candidate' | 'job_role'>): Promise<Application> {
-    const applications = await this.getApplications()
+    const rawRows = this.getRawApplications()
     const recruiters = await this.getRecruiters()
     const candidates = await this.getCandidates()
     const jobRoles = await this.getJobRoles()
 
-    const newApplication: Application = {
+    const newRaw: ApplicationRaw = {
       ...application,
       id: Date.now().toString(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+    }
+    rawRows.push(newRaw)
+    LocalStorage.set('applications', rawRows)
+
+    return {
+      ...newRaw,
       recruiter: recruiters.find((r) => r.id === application.recruiter_id),
       candidate: candidates.find((c) => c.id === application.candidate_id),
       job_role: jobRoles.find((jr) => jr.id === application.job_role_id),
-    } as Application
-
-    applications.push(newApplication)
-    LocalStorage.set('applications', applications)
-    return newApplication
+    }
   },
 
   async updateApplication(id: string, updates: Partial<Application>): Promise<Application> {
-    const applications = await this.getApplications()
-    const index = applications.findIndex((app) => app.id === id)
+    const rawRows = this.getRawApplications()
+    const index = rawRows.findIndex((app) => app.id === id)
     if (index === -1) throw new Error('Application not found')
 
-    applications[index] = {
-      ...applications[index],
-      ...updates,
+    const { recruiter, candidate, job_role, ...restUpdates } = updates
+    rawRows[index] = {
+      ...rawRows[index],
+      ...restUpdates,
       updated_at: new Date().toISOString(),
     }
+    LocalStorage.set('applications', rawRows)
 
-    LocalStorage.set('applications', applications)
-    return applications[index]
+    const recruiters = await this.getRecruiters()
+    const candidates = await this.getCandidates()
+    const jobRoles = await this.getJobRoles()
+    const updated = rawRows[index]
+    return {
+      ...updated,
+      recruiter: recruiters.find((r) => r.id === updated.recruiter_id),
+      candidate: candidates.find((c) => c.id === updated.candidate_id),
+      job_role: jobRoles.find((jr) => jr.id === updated.job_role_id),
+    }
+  },
+
+  async getApplication(id: string): Promise<Application> {
+    const applications = await this.getApplications()
+    const application = applications.find((app) => app.id === id)
+    if (!application) throw new Error('Application not found')
+    return application
   },
 
   async deleteApplication(id: string): Promise<void> {
-    const applications = await this.getApplications()
-    const filtered = applications.filter((app) => app.id !== id)
-    LocalStorage.set('applications', filtered)
+    const rawRows = this.getRawApplications().filter((app) => app.id !== id)
+    LocalStorage.set('applications', rawRows)
   },
 
   // Dashboard Stats
@@ -212,19 +253,8 @@ export const localDB = {
   },
 
   // Pipeline Flow
-  async getPipelineFlow(filters?: { recruiter_id?: string }): Promise<PipelineFlow> {
+  async getPipelineFlow(filters?: ApplicationFilters): Promise<PipelineFlow> {
     const applications = await this.getApplications(filters)
-
-    return {
-      sourced: applications.length,
-      callDone: applications.filter((app) => app.call_date).length,
-      connected: applications.filter((app) => app.call_status === 'Connected').length,
-      interested: applications.filter((app) => app.interested_status === 'Yes').length,
-      notInterested: applications.filter((app) => app.interested_status === 'No').length,
-      interviewScheduled: applications.filter((app) => app.interview_scheduled).length,
-      interviewDone: applications.filter((app) => app.interview_status === 'Done').length,
-      selected: applications.filter((app) => app.selection_status === 'Selected').length,
-      joined: applications.filter((app) => app.joining_status === 'Joined').length,
-    }
+    return computePipelineFlowFromApplications(applications)
   },
 }
