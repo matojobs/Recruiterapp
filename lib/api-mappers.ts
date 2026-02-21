@@ -19,10 +19,18 @@ import type {
 interface BackendCompany {
   id: number
   name: string
-  industry: string | null
-  size?: string
+  slug?: string
+  description?: string
   website?: string
-  created_at: string
+  industry?: string | null
+  size?: string
+  job_roles_count?: number
+  created_at?: string
+}
+
+/** Company by ID response includes job_roles array */
+interface BackendCompanyWithJobRoles extends BackendCompany {
+  job_roles?: BackendJobRole[]
 }
 
 /**
@@ -33,7 +41,8 @@ interface BackendJobRole {
   company_id: number
   role_name: string
   department?: string
-  created_at: string
+  is_active?: boolean
+  created_at?: string
   company?: BackendCompany
 }
 
@@ -120,22 +129,34 @@ export function mapCompany(backend: BackendCompany): Company {
   return {
     id: String(backend.id),
     company_name: backend.name, // Backend uses "name", frontend expects "company_name"
-    industry: backend.industry,
-    created_at: backend.created_at,
-    updated_at: backend.created_at, // Backend may not return updated_at
+    industry: backend.industry || null,
+    created_at: backend.created_at || new Date().toISOString(),
+    updated_at: backend.created_at || new Date().toISOString(), // Backend may not return updated_at
   }
+}
+
+export interface CompanyWithJobRoles {
+  company: Company
+  jobRoles: JobRole[]
+}
+
+export function mapCompanyWithJobRoles(backend: BackendCompanyWithJobRoles): CompanyWithJobRoles {
+  const company = mapCompany(backend)
+  const jobRoles = Array.isArray(backend.job_roles) ? backend.job_roles.map(mapJobRole) : []
+  return { company, jobRoles }
 }
 
 /**
  * Map backend job role to frontend format
  */
 export function mapJobRole(backend: BackendJobRole): JobRole {
+  const createdAt = backend.created_at ?? new Date().toISOString()
   return {
     id: String(backend.id),
     job_role: backend.role_name, // Backend uses "role_name", frontend expects "job_role"
     company_id: String(backend.company_id),
-    created_at: backend.created_at,
-    updated_at: backend.created_at,
+    created_at: createdAt,
+    updated_at: createdAt,
     company: backend.company ? mapCompany(backend.company) : undefined,
   }
 }

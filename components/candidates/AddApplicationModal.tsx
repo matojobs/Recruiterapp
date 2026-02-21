@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { getCompanies, getCompanyById, createCandidate } from '@/lib/data'
 import type { Recruiter, Company, JobRole, Candidate } from '@/types/database'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -11,8 +12,7 @@ interface AddApplicationModalProps {
   onClose: () => void
   onSave: (data: any) => Promise<void>
   recruiters: Recruiter[]
-  companies: Company[]
-  jobRoles: JobRole[]
+  companies?: Company[] // Optional - will fetch from API if not provided
 }
 
 export default function AddApplicationModal({
@@ -20,9 +20,13 @@ export default function AddApplicationModal({
   onClose,
   onSave,
   recruiters,
-  companies,
-  jobRoles,
+  companies: propCompanies,
 }: AddApplicationModalProps) {
+  const [companies, setCompanies] = useState<Company[]>(propCompanies || [])
+  /** Job roles for the selected company only (from API GET company by id) */
+  const [companyJobRoles, setCompanyJobRoles] = useState<JobRole[]>([])
+  const [loadingCompanies, setLoadingCompanies] = useState(false)
+  const [loadingJobRoles, setLoadingJobRoles] = useState(false)
   const [formData, setFormData] = useState({
     // Candidate fields
     candidate_name: '',
@@ -44,20 +48,51 @@ export default function AddApplicationModal({
     notes: '',
   })
   const [loading, setLoading] = useState(false)
-  const [filteredJobRoles, setFilteredJobRoles] = useState<JobRole[]>([])
 
+  // Fetch companies from API when modal opens (no recruiter job-roles list)
   useEffect(() => {
-    if (formData.company_id) {
-      const filtered = jobRoles.filter((jr) => (jr as any).company?.id === formData.company_id)
-      setFilteredJobRoles(filtered)
-      // Reset job_role_id if current selection is not in filtered list
-      if (formData.job_role_id && !filtered.find((jr) => jr.id === formData.job_role_id)) {
-        setFormData((prev) => ({ ...prev, job_role_id: '' }))
+    if (isOpen) {
+      async function loadCompanies() {
+        try {
+          setLoadingCompanies(true)
+          const companiesData = await getCompanies()
+          setCompanies(companiesData)
+        } catch (error) {
+          console.error('Error loading companies:', error)
+          if (propCompanies?.length) setCompanies(propCompanies)
+        } finally {
+          setLoadingCompanies(false)
+        }
       }
+      loadCompanies()
     } else {
-      setFilteredJobRoles(jobRoles)
+      setCompanies(propCompanies || [])
+      setCompanyJobRoles([])
     }
-  }, [formData.company_id, formData.job_role_id, jobRoles])
+  }, [isOpen, propCompanies])
+
+  // When user selects a company, fetch its related job roles from API (GET company by id)
+  useEffect(() => {
+    if (!formData.company_id) {
+      setCompanyJobRoles([])
+      return
+    }
+    let cancelled = false
+    async function loadJobRolesForCompany() {
+      try {
+        setLoadingJobRoles(true)
+        const { jobRoles: roles } = await getCompanyById(formData.company_id)
+        if (!cancelled) setCompanyJobRoles(roles)
+      } catch (error) {
+        console.error('Error loading job roles for company:', error)
+        if (!cancelled) setCompanyJobRoles([])
+      } finally {
+        if (!cancelled) setLoadingJobRoles(false)
+      }
+    }
+    loadJobRolesForCompany()
+    return () => { cancelled = true }
+  }, [formData.company_id])
 
   useEffect(() => {
     if (isOpen) {
@@ -80,17 +115,16 @@ export default function AddApplicationModal({
         interested_status: '',
         notes: '',
       })
-      setFilteredJobRoles(jobRoles)
+      setCompanyJobRoles([])
     }
-  }, [isOpen, jobRoles])
+  }, [isOpen])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
 
     try {
-      // First create candidate
-      const { createCandidate } = await import('@/lib/local-queries')
+      // First create candidate via API
       const candidate = await createCandidate({
         candidate_name: formData.candidate_name,
         phone: formData.phone || null,
@@ -202,19 +236,41 @@ export default function AddApplicationModal({
                 onChange={(e) => setFormData({ ...formData, portal: e.target.value })}
                 placeholder="e.g., Naukri, LinkedIn, etc."
               />
-              <Select
-                label="Company"
-                value={formData.company_id}
-                onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}
+              <div>
+                <Select
+                  label="Company"
+                  value={formData.company_id}
+                onChange={(e) => {
+                  setFormData({ ...formData, company_id: e.target.value, job_role_id: '' })
+                }}
                 options={companies.map((c) => ({ value: c.id, label: c.company_name }))}
+                disabled={loadingCompanies}
               />
-              <Select
-                label="Job Role"
-                value={formData.job_role_id}
-                onChange={(e) => setFormData({ ...formData, job_role_id: e.target.value })}
-                options={filteredJobRoles.map((jr) => ({ value: jr.id, label: jr.job_role }))}
-                disabled={!formData.company_id}
-              />
+              {loadingCompanies && (
+                <div className="text-sm text-gray-500 mt-1">Loading companies...</div>
+              )}
+              {!loadingCompanies && companies.length === 0 && (
+                <div className="text-sm text-red-500 mt-1">No companies available.</div>
+              )}
+              </div>
+              <div>
+                <Select
+                  label="Job Role"
+                  value={formData.job_role_id}
+                  onChange={(e) => setFormData({ ...formData, job_role_id: e.target.value })}
+                  options={companyJobRoles.map((jr) => ({ value: jr.id, label: jr.job_role }))}
+                  disabled={!formData.company_id || loadingJobRoles}
+                />
+                {!formData.company_id && (
+                  <div className="text-sm text-gray-500 mt-1">Select a company first</div>
+                )}
+                {formData.company_id && loadingJobRoles && (
+                  <div className="text-sm text-gray-500 mt-1">Loading job roles for this company...</div>
+                )}
+                {formData.company_id && !loadingJobRoles && companyJobRoles.length === 0 && (
+                  <div className="text-sm text-gray-500 mt-1">No job roles for this company</div>
+                )}
+              </div>
               <Input
                 label="Assigned Date"
                 type="date"

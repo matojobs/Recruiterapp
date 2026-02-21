@@ -17,8 +17,9 @@ export default function Select({ label, error, options, className, ...props }: S
       )}
       <select
         className={cn(
-          'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white',
+          'w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white relative z-10',
           error && 'border-red-500',
+          props.disabled && 'bg-gray-100 cursor-not-allowed',
           className
         )}
         {...props}

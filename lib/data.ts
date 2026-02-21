@@ -13,6 +13,7 @@ export const USE_BACKEND_API = true
 export const getRecruiters = backendApi.getRecruiters
 export const getRecruiterByEmail = backendApi.getRecruiterByEmail
 export const getCompanies = backendApi.getCompanies
+export const getCompanyById = backendApi.getCompanyById
 export const getJobRoles = backendApi.getJobRoles
 export const createJobRole = backendApi.createJobRole
 export const getCandidates = backendApi.getCandidates

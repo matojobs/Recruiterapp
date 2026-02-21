@@ -12,7 +12,9 @@ import {
   mapApplication,
   mapDashboardStats,
   mapPipelineFlow,
+  mapCompanyWithJobRoles,
 } from './api-mappers'
+import type { CompanyWithJobRoles } from './api-mappers'
 import type {
   Recruiter,
   Company,
@@ -69,6 +71,16 @@ export async function getCompanies(): Promise<Company[]> {
   return companies.map(mapCompany)
 }
 
+/**
+ * Get a single company by ID with its related job roles (from API, not recruiter-created list).
+ * Use this for Add New Candidate so job roles are the company's roles from the API.
+ */
+export async function getCompanyById(companyId: number | string): Promise<CompanyWithJobRoles> {
+  const id = typeof companyId === 'string' ? companyId : String(companyId)
+  const backend = await apiGet<any>(`/companies/${id}`)
+  return mapCompanyWithJobRoles(backend)
+}
+
 export async function getJobRoles(): Promise<JobRole[]> {
   const backend = await apiGet<any>('/job-roles')
   const jobRoles = Array.isArray(backend) ? backend : (backend?.data || backend?.items || [])
@@ -123,8 +135,8 @@ export async function getApplications(filters?: ApplicationFilters): Promise<App
     created_at: string
     updated_at: string
     candidate?: { id: number; candidate_name: string; phone: string | null; email: string | null; qualification: string | null; work_exp_years?: number | null; portal_id?: number; created_at: string }
-    job_role?: { id: number; company_id: number; role_name: string; department?: string; created_at: string; company?: { id: number; name: string; industry: string | null; size?: string; website?: string; created_at: string } }
-    company?: { id: number; name: string; industry: string | null; size?: string; website?: string; created_at: string }
+    job_role?: { id: number; company_id: number; role_name: string; department?: string; is_active?: boolean; created_at: string; company?: { id: number; name: string; slug?: string; description?: string; industry?: string | null; size?: string; website?: string; job_roles_count?: number; created_at?: string } }
+    company?: { id: number; name: string; slug?: string; description?: string; industry?: string | null; size?: string; website?: string; job_roles_count?: number; created_at?: string }
     recruiter?: { id: number; name: string; email: string; phone?: string; is_active?: boolean; created_at: string; updated_at: string }
   }> | { data?: Array<any>; applications?: Array<any>; items?: Array<any> }>(`/applications${query}`)
   
@@ -162,8 +174,8 @@ export async function getApplication(id: string): Promise<Application> {
     created_at: string
     updated_at: string
     candidate?: { id: number; candidate_name: string; phone: string | null; email: string | null; qualification: string | null; work_exp_years?: number | null; portal_id?: number; created_at: string }
-    job_role?: { id: number; company_id: number; role_name: string; department?: string; created_at: string; company?: { id: number; name: string; industry: string | null; size?: string; website?: string; created_at: string } }
-    company?: { id: number; name: string; industry: string | null; size?: string; website?: string; created_at: string }
+    job_role?: { id: number; company_id: number; role_name: string; department?: string; is_active?: boolean; created_at: string; company?: { id: number; name: string; slug?: string; description?: string; industry?: string | null; size?: string; website?: string; job_roles_count?: number; created_at?: string } }
+    company?: { id: number; name: string; slug?: string; description?: string; industry?: string | null; size?: string; website?: string; job_roles_count?: number; created_at?: string }
     recruiter?: { id: number; name: string; email: string; phone?: string; is_active?: boolean; created_at: string; updated_at: string }
   }>(`/applications/${id}`)
   

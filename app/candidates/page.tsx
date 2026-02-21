@@ -192,7 +192,6 @@ export default function CandidatesPage() {
         onSave={handleAddApplication}
         recruiters={recruiters}
         companies={companies}
-        jobRoles={jobRoles}
       />
 
       <FlowTracking flow={flow} />

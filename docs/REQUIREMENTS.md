@@ -1,22 +1,40 @@
-# Backend API Requirements
+# Recruiter Portal API Documentation
 
-This document describes the **actual API contract** for the Recruiter App frontend to work with your live backend. All routes use the `/api/recruiter/*` prefix and require JWT authentication.
+## 📋 Overview
 
----
+This document provides complete API documentation for the **Recruiter Portal**, including all endpoints, request/response formats, and dummy payload examples.
 
-## 1. Overview
-
-- **Base URL:** `https://api.jobsmato.com/api/recruiter` (production) or `http://localhost:5000/api/recruiter` (local)
-- **Authentication:** JWT token required in `Authorization: Bearer <TOKEN>` header for all endpoints
-- **Content type:** JSON for request and response bodies (`Content-Type: application/json`)
-- **Dates:** ISO 8601 date strings (`YYYY-MM-DD` for dates, full ISO for timestamps)
-- **Field naming:** All fields use `snake_case` (e.g. `candidate_id`, `call_status`, `assigned_date`)
+**⚠️ IMPORTANT API CHANGE:** All recruiter endpoints have been moved to `/api/recruiter/*` prefix to avoid conflicts with the Job Portal routes.
 
 ---
 
-## 2. Authentication
+## 🔄 API Changes Summary
 
-### Login Endpoint
+### Before (Deprecated)
+- ❌ `POST /api/applications` 
+- ❌ `GET /api/applications`
+- ❌ `GET /api/companies`
+- ❌ `GET /api/dashboard/stats`
+
+### After (Current)
+- ✅ `POST /api/recruiter/applications`
+- ✅ `GET /api/recruiter/applications`
+- ✅ `GET /api/recruiter/companies`
+- ✅ `GET /api/recruiter/dashboard/stats`
+
+**All recruiter routes now use `/api/recruiter/*` prefix.**
+
+---
+
+## 🔐 Authentication
+
+All endpoints require JWT authentication. Include the token in the Authorization header:
+
+```
+Authorization: Bearer <JWT_TOKEN>
+```
+
+### Get Authentication Token
 
 ```http
 POST /api/auth/login
@@ -28,7 +46,7 @@ Content-Type: application/json
 }
 ```
 
-**Response (200 OK):**
+**Response:**
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -40,42 +58,28 @@ Content-Type: application/json
 }
 ```
 
-**All subsequent requests must include:**
-```
-Authorization: Bearer <accessToken>
-```
+---
+
+## 📦 Field Naming Convention
+
+**All field names use `snake_case` to match frontend spec exactly:**
+
+- ✅ `candidate_id` (not `candidateId`)
+- ✅ `job_role_id` (not `jobRoleId`)
+- ✅ `call_status` (not `callStatus`)
+- ✅ `interested_status` (not `interestedStatus`)
+- ✅ `selection_status` (not `selectionStatus`)
+- ✅ `joining_status` (not `joiningStatus`)
+- ✅ `assigned_date` (not `assignedDate`)
+- ✅ `work_exp_years` (not `workExpYears`)
+- ✅ `candidate_name` (not `candidateName`)
 
 ---
 
-## 3. Error Responses
-
-All errors follow this format:
-
-```json
-{
-  "statusCode": 400,
-  "message": "Human readable error message",
-  "error": "Bad Request",
-  "timestamp": "2026-02-19T12:00:00.000Z",
-  "path": "/api/recruiter/applications"
-}
-```
-
-**Common status codes:**
-- `400 Bad Request` - Validation error, duplicate application
-- `401 Unauthorized` - Missing or invalid JWT token
-- `403 Forbidden` - Not a recruiter or inactive account
-- `404 Not Found` - Resource not found
-- `500 Internal Server Error` - Server error
-
----
-
-## 4. Status Value Mapping
-
-**Important:** Backend stores statuses as SMALLINT internally but **always accepts and returns string values** in API requests/responses.
+## 🔄 Status Value Mapping
 
 ### Call Status
-| API Value (String) | Database (SMALLINT) |
+| Frontend (String) | Database (SMALLINT) |
 |-------------------|---------------------|
 | "Busy"            | 1                   |
 | "RNR"             | 2                   |
@@ -83,34 +87,36 @@ All errors follow this format:
 | "Wrong Number"    | 4                   |
 
 ### Interested Status
-| API Value (String) | Database (SMALLINT) |
+| Frontend (String) | Database (SMALLINT) |
 |-------------------|---------------------|
 | "Yes"             | 1                   |
 | "No"              | 2                   |
 | "Call Back Later" | 3                   |
 
 ### Selection Status
-| API Value (String) | Database (SMALLINT) |
+| Frontend (String) | Database (SMALLINT) |
 |-------------------|---------------------|
 | "Selected"        | 1                   |
 | "Not Selected"    | 2                   |
 | "Pending"          | 3                   |
 
 ### Joining Status
-| API Value (String) | Database (SMALLINT) |
+| Frontend (String) | Database (SMALLINT) |
 |-------------------|---------------------|
 | "Joined"          | 1                   |
 | "Not Joined"      | 2                   |
 | "Pending"          | 3                   |
 | "Backed Out"       | 4                   |
 
-**Always send string values in API requests; backend handles conversion.**
+**Note:** Backend automatically converts between string values (frontend) and SMALLINT (database). Always send string values in API requests.
 
 ---
 
-## 5. Master Data Endpoints
+## 📡 API Endpoints
 
-### 5.1 Get All Recruiters
+### 1. Master Data Endpoints
+
+#### 1.1 Get All Recruiters
 
 ```http
 GET /api/recruiter/recruiters
@@ -128,13 +134,22 @@ Authorization: Bearer <TOKEN>
     "is_active": true,
     "created_at": "2026-02-01T10:00:00.000Z",
     "updated_at": "2026-02-01T10:00:00.000Z"
+  },
+  {
+    "id": 2,
+    "name": "Jane Recruiter",
+    "email": "jane@recruiter.com",
+    "phone": "+91 9876543211",
+    "is_active": true,
+    "created_at": "2026-02-02T10:00:00.000Z",
+    "updated_at": "2026-02-02T10:00:00.000Z"
   }
 ]
 ```
 
 ---
 
-### 5.2 Get All Companies
+#### 1.2 Get All Companies
 
 ```http
 GET /api/recruiter/companies
@@ -147,19 +162,76 @@ Authorization: Bearer <TOKEN>
   {
     "id": 1,
     "name": "Tech Corp",
-    "industry": "Technology",
-    "size": "Large",
+    "slug": "tech-corp",
+    "description": "Leading technology company",
     "website": "https://techcorp.com",
-    "created_at": "2026-01-15T10:00:00.000Z"
+    "industry": "Technology",
+    "job_roles_count": 5
+  },
+  {
+    "id": 2,
+    "name": "StartupXYZ",
+    "slug": "startupxyz",
+    "description": "Innovative software startup",
+    "website": "https://startupxyz.com",
+    "industry": "Software",
+    "job_roles_count": 3
   }
 ]
 ```
 
-**Note:** Backend returns `name` (not `company_name`). Frontend may need to map this.
+**Note:** Response now includes `job_roles_count` showing how many active job roles exist for each company.
 
 ---
 
-### 5.3 Get Job Roles
+#### 1.2a Get Company by ID (with Job Roles)
+
+```http
+GET /api/recruiter/companies/1
+Authorization: Bearer <TOKEN>
+```
+
+**Response (200 OK):**
+```json
+{
+  "id": 1,
+  "name": "Tech Corp",
+  "slug": "tech-corp",
+  "description": "Leading technology company",
+  "website": "https://techcorp.com",
+  "industry": "Technology",
+  "job_roles": [
+    {
+      "id": 1,
+      "company_id": 1,
+      "role_name": "Software Engineer",
+      "department": "Engineering",
+      "is_active": true
+    },
+    {
+      "id": 2,
+      "company_id": 1,
+      "role_name": "Product Manager",
+      "department": "Product",
+      "is_active": true
+    }
+  ],
+  "job_roles_count": 2
+}
+```
+
+**Response (404 Not Found):**
+```json
+{
+  "statusCode": 404,
+  "message": "Company with ID 1 not found",
+  "error": "Not Found"
+}
+```
+
+---
+
+#### 1.3 Get Job Roles (with Company Details)
 
 ```http
 GET /api/recruiter/job-roles?company_id=1
@@ -177,22 +249,91 @@ Authorization: Bearer <TOKEN>
     "company_id": 1,
     "role_name": "Software Engineer",
     "department": "Engineering",
-    "created_at": "2026-02-01T10:00:00.000Z"
+    "is_active": true,
+    "company": {
+      "id": 1,
+      "name": "Tech Corp",
+      "slug": "tech-corp",
+      "description": "Leading technology company",
+      "website": "https://techcorp.com",
+      "industry": "Technology"
+    }
+  },
+  {
+    "id": 2,
+    "company_id": 1,
+    "role_name": "Product Manager",
+    "department": "Product",
+    "is_active": true,
+    "company": {
+      "id": 1,
+      "name": "Tech Corp",
+      "slug": "tech-corp",
+      "description": "Leading technology company",
+      "website": "https://techcorp.com",
+      "industry": "Technology"
+    }
   }
 ]
 ```
 
-**Note:** Backend returns `role_name` (not `job_role`). Frontend may need to map this.
+**Note:** Each job role now includes full `company` details, so recruiters can see which company each role belongs to.
 
 ---
 
-### 5.4 Create Job Role
+#### 1.3a Get Job Role by ID (with Company Details)
+
+```http
+GET /api/recruiter/job-roles/1
+Authorization: Bearer <TOKEN>
+```
+
+**Response (200 OK):**
+```json
+{
+  "id": 1,
+  "company_id": 1,
+  "role_name": "Software Engineer",
+  "department": "Engineering",
+  "is_active": true,
+  "company": {
+    "id": 1,
+    "name": "Tech Corp",
+    "slug": "tech-corp",
+    "description": "Leading technology company",
+    "website": "https://techcorp.com",
+    "industry": "Technology"
+  }
+}
+```
+
+**Response (404 Not Found):**
+```json
+{
+  "statusCode": 404,
+  "message": "Job role with ID 1 not found",
+  "error": "Not Found"
+}
+```
+
+---
+
+#### 1.4 Create Job Role
 
 ```http
 POST /api/recruiter/job-roles
 Authorization: Bearer <TOKEN>
 Content-Type: application/json
 
+{
+  "company_id": 1,
+  "role_name": "Senior Software Engineer",
+  "department": "Engineering"
+}
+```
+
+**Request Payload:**
+```json
 {
   "company_id": 1,
   "role_name": "Senior Software Engineer",
@@ -213,7 +354,7 @@ Content-Type: application/json
 
 ---
 
-### 5.5 Get Candidates
+#### 1.5 Get Candidates
 
 ```http
 GET /api/recruiter/candidates?search=john
@@ -235,19 +376,41 @@ Authorization: Bearer <TOKEN>
     "work_exp_years": 5,
     "portal_id": 1,
     "created_at": "2026-02-01T10:00:00.000Z"
+  },
+  {
+    "id": 2,
+    "candidate_name": "Jane Smith",
+    "phone": "+91 9876543211",
+    "email": "jane@example.com",
+    "qualification": "M.Tech",
+    "work_exp_years": 3,
+    "portal_id": 1,
+    "created_at": "2026-02-02T10:00:00.000Z"
   }
 ]
 ```
 
 ---
 
-### 5.6 Create Candidate
+#### 1.6 Create Candidate
 
 ```http
 POST /api/recruiter/candidates
 Authorization: Bearer <TOKEN>
 Content-Type: application/json
 
+{
+  "candidate_name": "Alice Johnson",
+  "phone": "+91 9876543212",
+  "email": "alice@example.com",
+  "qualification": "B.Tech Computer Science",
+  "work_exp_years": 4,
+  "portal_id": 1
+}
+```
+
+**Request Payload:**
+```json
 {
   "candidate_name": "Alice Johnson",
   "phone": "+91 9876543212",
@@ -274,9 +437,9 @@ Content-Type: application/json
 
 ---
 
-## 6. Applications CRUD
+### 2. Applications CRUD
 
-### 6.1 Get Applications (with filters)
+#### 2.1 Get Applications (with filters)
 
 ```http
 GET /api/recruiter/applications?page=1&limit=20&call_status=Connected&interested_status=Yes&job_role_id=1
@@ -289,12 +452,12 @@ Authorization: Bearer <TOKEN>
 - `recruiter_id` (optional): Filter by recruiter ID
 - `job_role_id` (optional): Filter by job role ID
 - `company_id` (optional): Filter by company ID
-- `call_status` (optional): "Busy", "RNR", "Connected", "Wrong Number"
-- `interested_status` (optional): "Yes", "No", "Call Back Later"
-- `selection_status` (optional): "Selected", "Not Selected", "Pending"
-- `joining_status` (optional): "Joined", "Not Joined", "Pending", "Backed Out"
-- `start_date` (optional): Filter from date (ISO: "2026-02-01")
-- `end_date` (optional): Filter to date (ISO: "2026-02-28")
+- `call_status` (optional): Filter by call status ("Busy", "RNR", "Connected", "Wrong Number")
+- `interested_status` (optional): Filter by interested status ("Yes", "No", "Call Back Later")
+- `selection_status` (optional): Filter by selection status ("Selected", "Not Selected", "Pending")
+- `joining_status` (optional): Filter by joining status ("Joined", "Not Joined", "Pending", "Backed Out")
+- `start_date` (optional): Filter from date (ISO format: "2026-02-01")
+- `end_date` (optional): Filter to date (ISO format: "2026-02-28")
 
 **Response (200 OK):**
 ```json
@@ -332,11 +495,9 @@ Authorization: Bearer <TOKEN>
 ]
 ```
 
-**Note:** Backend returns nested `candidate`, `job_role`, and `company` objects. Field names may differ (`role_name` vs `job_role`, `name` vs `company_name`).
-
 ---
 
-### 6.2 Get Application by ID
+#### 2.2 Get Application by ID
 
 ```http
 GET /api/recruiter/applications/1
@@ -359,16 +520,45 @@ Authorization: Bearer <TOKEN>
   "notes": "Candidate showed strong interest",
   "created_at": "2026-02-05T10:00:00.000Z",
   "updated_at": "2026-02-06T10:00:00.000Z",
-  "candidate": { /* full candidate object */ },
-  "job_role": { /* full job_role object */ },
-  "company": { /* full company object */ },
-  "recruiter": { /* full recruiter object */ }
+  "candidate": {
+    "id": 1,
+    "candidate_name": "John Doe",
+    "phone": "+91 9876543210",
+    "email": "john@example.com",
+    "qualification": "B.Tech",
+    "work_exp_years": 5
+  },
+  "job_role": {
+    "id": 1,
+    "role_name": "Software Engineer",
+    "department": "Engineering",
+    "company_id": 1
+  },
+  "company": {
+    "id": 1,
+    "name": "Tech Corp",
+    "industry": "Technology"
+  },
+  "recruiter": {
+    "id": 1,
+    "name": "John Recruiter",
+    "email": "john@recruiter.com"
+  }
+}
+```
+
+**Response (404 Not Found):**
+```json
+{
+  "statusCode": 404,
+  "message": "Application not found",
+  "error": "Not Found"
 }
 ```
 
 ---
 
-### 6.3 Create Application
+#### 2.3 Create Application
 
 ```http
 POST /api/recruiter/applications
@@ -388,13 +578,33 @@ Content-Type: application/json
 }
 ```
 
+**Request Payload:**
+```json
+{
+  "candidate_id": 1,
+  "job_role_id": 1,
+  "assigned_date": "2026-02-19",
+  "call_date": "2026-02-20",
+  "call_status": "Connected",
+  "interested_status": "Yes",
+  "selection_status": "Pending",
+  "joining_status": "Pending",
+  "notes": "Initial contact made, candidate interested"
+}
+```
+
 **Required Fields:**
-- `candidate_id` (number)
-- `job_role_id` (number)
-- `assigned_date` (string, ISO date)
+- `candidate_id` (number): ID of the candidate
+- `job_role_id` (number): ID of the job role
+- `assigned_date` (string, ISO date): Date when application was assigned
 
 **Optional Fields:**
-- `call_date`, `call_status`, `interested_status`, `selection_status`, `joining_status`, `notes`, etc.
+- `call_date` (string, ISO date): Date of the call
+- `call_status` (string): "Busy", "RNR", "Connected", "Wrong Number"
+- `interested_status` (string): "Yes", "No", "Call Back Later"
+- `selection_status` (string): "Selected", "Not Selected", "Pending"
+- `joining_status` (string): "Joined", "Not Joined", "Pending", "Backed Out"
+- `notes` (string): Additional notes
 
 **Response (201 Created):**
 ```json
@@ -415,7 +625,7 @@ Content-Type: application/json
 }
 ```
 
-**Error (400 Bad Request - Duplicate):**
+**Response (400 Bad Request - Duplicate):**
 ```json
 {
   "statusCode": 400,
@@ -424,9 +634,21 @@ Content-Type: application/json
 }
 ```
 
+**Response (400 Bad Request - Validation Error):**
+```json
+{
+  "statusCode": 400,
+  "message": [
+    "candidate_id must be a number conforming to the specified constraints",
+    "assigned_date must be a valid ISO 8601 date string"
+  ],
+  "error": "Bad Request"
+}
+```
+
 ---
 
-### 6.4 Update Application
+#### 2.4 Update Application
 
 ```http
 PATCH /api/recruiter/applications/1
@@ -442,11 +664,49 @@ Content-Type: application/json
 }
 ```
 
-**Response (200 OK):** Full application object with relations.
+**Request Payload (all fields optional):**
+```json
+{
+  "call_date": "2026-02-21",
+  "call_status": "Connected",
+  "interested_status": "Yes",
+  "selection_status": "Selected",
+  "joining_status": "Pending",
+  "notes": "Updated: Candidate passed interview"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "id": 1,
+  "recruiter_id": 1,
+  "candidate_id": 1,
+  "job_role_id": 1,
+  "assigned_date": "2026-02-05",
+  "call_date": "2026-02-21",
+  "call_status": "Connected",
+  "interested_status": "Yes",
+  "selection_status": "Selected",
+  "joining_status": "Pending",
+  "notes": "Updated: Candidate passed interview",
+  "created_at": "2026-02-05T10:00:00.000Z",
+  "updated_at": "2026-02-19T12:00:00.000Z"
+}
+```
+
+**Response (404 Not Found):**
+```json
+{
+  "statusCode": 404,
+  "message": "Application not found",
+  "error": "Not Found"
+}
+```
 
 ---
 
-### 6.5 Delete Application
+#### 2.5 Delete Application
 
 ```http
 DELETE /api/recruiter/applications/1
@@ -460,11 +720,20 @@ Authorization: Bearer <TOKEN>
 }
 ```
 
+**Response (404 Not Found):**
+```json
+{
+  "statusCode": 404,
+  "message": "Application not found",
+  "error": "Not Found"
+}
+```
+
 ---
 
-## 7. Dashboard Endpoints
+### 3. Dashboard Endpoints
 
-### 7.1 Get Dashboard Statistics
+#### 3.1 Get Dashboard Statistics
 
 ```http
 GET /api/recruiter/dashboard/stats
@@ -489,15 +758,9 @@ Authorization: Bearer <TOKEN>
 }
 ```
 
-**Note:** Backend returns different field names than frontend expects. Frontend may need to map:
-- `total_applications` → `totalSourced`
-- `connected_calls` → `connectedToday`
-- `interested_candidates` → `interestedToday`
-- etc.
-
 ---
 
-### 7.2 Get Pipeline Breakdown
+#### 3.2 Get Pipeline Breakdown
 
 ```http
 GET /api/recruiter/dashboard/pipeline
@@ -542,11 +805,9 @@ Authorization: Bearer <TOKEN>
 ]
 ```
 
-**Note:** Backend returns array of `{ stage, count }` objects. Frontend expects `{ sourced, callDone, connected, ... }` object. Frontend will need to map stages to pipeline flow keys.
-
 ---
 
-### 7.3 Get Recruiter Performance Report
+#### 3.3 Get Recruiter Performance Report
 
 ```http
 GET /api/recruiter/reports/recruiter-performance?start_date=2026-02-01&end_date=2026-02-28
@@ -554,8 +815,8 @@ Authorization: Bearer <TOKEN>
 ```
 
 **Query Parameters:**
-- `start_date` (optional): ISO format ("2026-02-01")
-- `end_date` (optional): ISO format ("2026-02-28")
+- `start_date` (optional): Start date (ISO format: "2026-02-01")
+- `end_date` (optional): End date (ISO format: "2026-02-28")
 
 **Response (200 OK):**
 ```json
@@ -576,55 +837,142 @@ Authorization: Bearer <TOKEN>
     "conversion_rate": 20.0,
     "avg_calls_per_day": 6.67
   },
-  "daily_breakdown": [ /* ... */ ]
+  "daily_breakdown": [
+    {
+      "date": "2026-02-01",
+      "applications": 5,
+      "calls": 8,
+      "interested": 3,
+      "selected": 2
+    },
+    {
+      "date": "2026-02-02",
+      "applications": 7,
+      "calls": 10,
+      "interested": 5,
+      "selected": 3
+    }
+  ]
+}
+```
+
+**Response (404 Not Found - No Data):**
+```json
+{
+  "statusCode": 404,
+  "message": "No performance data found for the specified period",
+  "error": "Not Found"
 }
 ```
 
 ---
 
-## 8. Summary Checklist
+## ✅ Requirements Fulfillment Checklist
 
-All endpoints use `/api/recruiter/*` prefix:
+### ✅ Module Architecture
+- [x] Separate NestJS module: `/modules/recruiter`
+- [x] Controller, Service, Module files
+- [x] DTOs, Guards, Enums, Mappers, Interfaces
+- [x] Only accesses `sourcing` schema
 
-| # | Endpoint | Method | Purpose |
-|---|----------|--------|---------|
-| 1 | `/api/recruiter/recruiters` | GET | List recruiters |
-| 2 | `/api/recruiter/companies` | GET | List companies |
-| 3 | `/api/recruiter/job-roles` | GET, POST | List/create job roles |
-| 4 | `/api/recruiter/candidates` | GET, POST | List/create candidates |
-| 5 | `/api/recruiter/applications` | GET, POST | List/create applications |
-| 6 | `/api/recruiter/applications/:id` | GET, PATCH, DELETE | Get/update/delete application |
-| 7 | `/api/recruiter/dashboard/stats` | GET | Dashboard statistics |
-| 8 | `/api/recruiter/dashboard/pipeline` | GET | Pipeline breakdown |
-| 9 | `/api/recruiter/reports/recruiter-performance` | GET | Recruiter performance report |
-| 10 | `/api/auth/login` | POST | Authentication (no prefix) |
+### ✅ Role Guard
+- [x] `@UseGuards(JwtAuthGuard, RecruiterGuard)`
+- [x] Roles decorator and RolesGuard
+- [x] JWT validation
+- [x] Role extracted from JWT
+- [x] Recruiters cannot access job portal/admin APIs
+
+### ✅ Exact Payload Contract
+- [x] All field names use `snake_case` (candidate_name, phone, qualification, etc.)
+- [x] No camelCase transformation
+- [x] Backend returns exact same key names as frontend spec
+
+### ✅ Internal Status Mapping
+- [x] Database uses SMALLINT
+- [x] Frontend uses string values
+- [x] Internal enum mapping implemented
+- [x] Conversion happens in service layer
+- [x] Never exposes integers to frontend
+
+### ✅ All Endpoints Implemented
+- [x] Master Data: GET recruiters, companies, job-roles, candidates
+- [x] Master Data: POST job-roles, candidates
+- [x] Applications: GET (list), GET (by ID), POST, PATCH, DELETE
+- [x] Dashboard: GET stats, GET pipeline
+- [x] Reports: GET recruiter-performance
+- [x] Nested relations: recruiter, candidate, job_role, company
+
+### ✅ Data Protection Rules
+- [x] Duplicate check: (candidate_id, job_role_id, assigned_date)
+- [x] Returns 400 with error on duplicate
+- [x] Recruiters cannot modify other recruiter's applications
+- [x] All queries use safe parameter binding
+
+### ✅ Sub-Service Ready
+- [x] Separate environment config
+- [x] No tight coupling to job portal module
+- [x] No cross-schema writes
+- [x] Can be extracted to separate service
+
+### ✅ Dashboard Query Optimization
+- [x] Uses partition pruning
+- [x] Uses indexes
+- [x] Uses materialized views for stats
+- [x] Does NOT aggregate raw tables directly
+
+### ✅ Response Format
+- [x] 200 OK, 201 Created, 400 Bad Request, 404 Not Found, 500 Internal Server Error
+- [x] Error format: `{ "error": "Human readable message" }`
+- [x] No nested error objects
+
+### ✅ Validation
+- [x] Uses class-validator
+- [x] DTO validation
+- [x] Strict type enforcement
+- [x] Date format validation (ISO only)
+- [x] Rejects malformed payloads
 
 ---
 
-## 9. Frontend Integration Notes
+## 🚨 Error Responses
 
-### Field Name Mapping Required
+All errors follow this format:
 
-Backend uses slightly different field names than frontend expects:
+```json
+{
+  "statusCode": 400,
+  "message": "Human readable error message",
+  "error": "Bad Request",
+  "timestamp": "2026-02-19T12:00:00.000Z",
+  "path": "/api/recruiter/applications"
+}
+```
 
-| Frontend Expects | Backend Returns | Action |
-|------------------|-----------------|--------|
-| `company_name` | `name` | Map in response handler |
-| `job_role` | `role_name` | Map in response handler |
-| `totalSourced` | `total_applications` | Map dashboard stats |
-| `connectedToday` | `connected_calls` | Map dashboard stats |
-| `sourced`, `callDone`, etc. | `{ stage, count }[]` | Map pipeline array to object |
+**Common Error Codes:**
+- `400 Bad Request` - Validation error, duplicate application
+- `401 Unauthorized` - Missing or invalid JWT token
+- `403 Forbidden` - Not a recruiter or inactive account
+- `404 Not Found` - Resource not found
+- `500 Internal Server Error` - Server error
 
-### Authentication Flow
+---
 
-1. User logs in via `POST /api/auth/login`
-2. Store `accessToken` from response
-3. Include `Authorization: Bearer <accessToken>` in all subsequent requests
-4. Handle `401` responses by redirecting to login
+## 📝 Notes
 
-### Date Filter Parameters
+1. **Route Isolation**: All recruiter routes are under `/api/recruiter/*` prefix
+2. **No Conflicts**: Job portal routes (`/api/applications`, `/api/jobs`, etc.) remain unchanged
+3. **Backward Compatible**: Job portal frontend continues to work without changes
+4. **Breaking Change**: Only affects recruiter frontend (must use `/api/recruiter/*` prefix)
+5. **Status Values**: Always send string values ("Connected", "Yes", etc.), backend handles conversion
+6. **Date Format**: All dates must be ISO 8601 format (YYYY-MM-DD)
 
-Backend uses `start_date`/`end_date` (not `date_from`/`date_to`). Frontend should map query params accordingly.
+---
+
+## 🔗 Related Documentation
+
+- [Recruiter Module Setup](./src/modules/recruiter/RECRUITER-MODULE-SETUP.md)
+- [API Routes Summary](./API-ROUTES-SUMMARY.md)
+- [Sourcing DataLake Architecture](./SOURCING-DATALAKE-ARCHITECTURE.md)
 
 ---
 
