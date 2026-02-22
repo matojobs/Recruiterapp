@@ -13,8 +13,15 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     getSettings()
       .then((res) => {
-        if (Array.isArray(res)) setItems(res)
-        else setItems(Object.entries(res as Record<string, unknown>).map(([key, value]) => ({ key, value })))
+        if (Array.isArray(res)) {
+          setItems(res as SettingItem[])
+        } else {
+          const entries = Object.entries(res as Record<string, unknown>).map(([key, value]): SettingItem => ({
+            key,
+            value: value as string | number | boolean | Record<string, unknown>,
+          }))
+          setItems(entries)
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false))

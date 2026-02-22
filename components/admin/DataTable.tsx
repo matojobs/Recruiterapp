@@ -26,7 +26,7 @@ interface DataTableProps<T> {
   className?: string
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T extends object>({
   columns,
   data,
   keyExtractor,
@@ -110,7 +110,7 @@ export function DataTable<T extends Record<string, unknown>>({
                   )}
                   {columns.map((col) => (
                     <td key={col.key} className={cn('whitespace-nowrap px-4 py-3 text-sm text-gray-900 dark:text-gray-100', col.className)}>
-                      {col.render ? col.render(row) : String((row[col.key] ?? '') as string)}
+                      {col.render ? col.render(row) : String((row as Record<string, unknown>)[col.key] ?? '')}
                     </td>
                   ))}
                 </tr>
