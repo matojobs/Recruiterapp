@@ -33,6 +33,29 @@
 - Already fixed! The code now handles both array and object responses from backend
 - Hard refresh browser (Ctrl+Shift+R) to clear cache
 
+### "A listener indicated an asynchronous response by returning true, but the message channel closed..."
+
+**Symptoms:**
+- Console error mentioning `message channel closed` or `injectScriptAdjust.js`
+- Often appears on login or form pages
+
+**Cause:** This comes from a **browser extension** (e.g. password manager, autofill, or ad blocker), not from the app. The extension injects scripts and sometimes closes before sending a response.
+
+**Solution:**
+- **Ignore it** – it does not break the app.
+- Or open the app in **Incognito/Private** (extensions are usually disabled) or disable extensions for `localhost`.
+- Do not use the recruiter or admin login page in a window where an extension is modifying the page if you see odd behavior.
+
+### Admin login 401 or dashboard 403
+
+**Symptoms:**
+- `POST .../api/admin/auth/login 401 (Unauthorized)`
+- `GET .../api/admin/dashboard/stats 403 (Forbidden)` or analytics 403
+
+**401 on login:** Invalid email/password, or the user is not an admin in the backend. Use an account that has `role = 'admin'` and correct password. The UI will show: *"Invalid email or password. This account may not have admin access."*
+
+**403 on dashboard/stats or analytics:** The admin user is logged in but does not have the `view_analytics` permission. The dashboard will show a permission-denied message for stats and "Permission denied" in analytics tabs. Backend must assign the `view_analytics` permission to the admin user/role.
+
 ### CORS Errors
 
 **Symptoms:**

@@ -54,7 +54,7 @@ export default function Header() {
     <header className="bg-white border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">
-          Recruitment Sourcing Tracker
+          HRMS Jobsmato
         </h2>
         <div className="flex items-center space-x-4">
           {!loading && recruiterName && (

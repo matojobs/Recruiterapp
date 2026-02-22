@@ -17,8 +17,8 @@ export default function Sidebar() {
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
       <div className="p-6 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-gray-900">Recruiter App</h1>
-        <p className="text-sm text-gray-500 mt-1">Sourcing Tracker</p>
+        <h1 className="text-xl font-bold text-gray-900">HRMS Jobsmato</h1>
+        <p className="text-sm text-gray-500 mt-1">Recruitment</p>
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {navigation.map((item) => {

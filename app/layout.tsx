@@ -8,8 +8,8 @@ import LayoutClient from './layout-client'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Recruiter App - Sourcing Tracker',
-  description: 'Web-based recruitment sourcing tracker',
+  title: 'HRMS Jobsmato',
+  description: 'HRMS Jobsmato - Recruitment and sourcing',
 }
 
 export default function RootLayout({

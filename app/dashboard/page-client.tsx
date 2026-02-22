@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import StatsCards from '@/components/dashboard/StatsCards'
 import PipelineFlow from '@/components/dashboard/PipelineFlow'
 import CandidateList from '@/components/dashboard/CandidateList'
 import SystemAgeStats from '@/components/dashboard/SystemAgeStats'
 import JoinedAgeStats from '@/components/dashboard/JoinedAgeStats'
-import { getDashboardStats, getPipelineFlow, getApplications } from '@/lib/data'
+import AddApplicationModal from '@/components/candidates/AddApplicationModal'
+import { getDashboardStats, getPipelineFlow, getApplications, getRecruiters, createApplication } from '@/lib/data'
 import { getCurrentUser, getCurrentRecruiter } from '@/lib/auth-helper'
 import type { DashboardStats, PipelineFlow as PipelineFlowType, Application, Recruiter } from '@/types/database'
 
@@ -15,43 +16,54 @@ export default function DashboardPageClient() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [flow, setFlow] = useState<PipelineFlowType | null>(null)
   const [applications, setApplications] = useState<Application[]>([])
+  const [recruiters, setRecruiters] = useState<Recruiter[]>([])
   const [loading, setLoading] = useState(true)
+  const [showAddModal, setShowAddModal] = useState(false)
+
+  const loadData = useCallback(async () => {
+    try {
+      const currentUser = await getCurrentUser()
+      if (!currentUser) {
+        window.location.href = '/login'
+        return
+      }
+
+      const recruiterData = await getCurrentRecruiter()
+      if (recruiterData) {
+        setRecruiter(recruiterData as any)
+      }
+
+      const [statsData, flowData, appsData] = await Promise.all([
+        getDashboardStats(currentUser.recruiter_id),
+        getPipelineFlow({ recruiter_id: currentUser.recruiter_id }),
+        getApplications({ recruiter_id: currentUser.recruiter_id }),
+      ])
+
+      setStats(statsData)
+      setFlow(flowData)
+      setApplications(appsData)
+    } catch (error) {
+      console.error('Error loading dashboard:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        // Get current user
-        const currentUser = await getCurrentUser()
-        if (!currentUser) {
-          window.location.href = '/login'
-          return
-        }
-
-        // Get recruiter
-        const recruiterData = await getCurrentRecruiter()
-        if (recruiterData) {
-          setRecruiter(recruiterData as any)
-        }
-
-        // Load dashboard data
-        const [statsData, flowData, appsData] = await Promise.all([
-          getDashboardStats(currentUser.recruiter_id),
-          getPipelineFlow({ recruiter_id: currentUser.recruiter_id }),
-          getApplications({ recruiter_id: currentUser.recruiter_id }),
-        ])
-
-        setStats(statsData)
-        setFlow(flowData)
-        setApplications(appsData)
-      } catch (error) {
-        console.error('Error loading dashboard:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     loadData()
-  }, [])
+  }, [loadData])
+
+  useEffect(() => {
+    if (showAddModal && recruiters.length === 0) {
+      getRecruiters().then(setRecruiters).catch(() => {})
+    }
+  }, [showAddModal, recruiters.length])
+
+  async function handleAddApplication(applicationData: any) {
+    await createApplication(applicationData)
+    setShowAddModal(false)
+    await loadData()
+  }
 
   if (loading) {
     return (
@@ -89,6 +101,23 @@ export default function DashboardPageClient() {
         <JoinedAgeStats applications={applications} />
       </div>
       <CandidateList applications={applications} />
+
+      {/* Floating Add Candidate button */}
+      <button
+        type="button"
+        onClick={() => setShowAddModal(true)}
+        className="fixed bottom-6 right-6 flex h-14 w-14 items-center justify-center rounded-full bg-primary-500 text-white shadow-lg transition hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+        aria-label="Add candidate"
+      >
+        <span className="text-2xl leading-none">+</span>
+      </button>
+
+      <AddApplicationModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSave={handleAddApplication}
+        recruiters={recruiters}
+      />
     </div>
   )
 }

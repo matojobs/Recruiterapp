@@ -11,6 +11,11 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true)
   const pathname = usePathname()
 
+  // Admin panel has its own layout and auth; do not wrap with recruiter sidebar/header
+  if (pathname?.startsWith('/admin')) {
+    return <>{children}</>
+  }
+
   useEffect(() => {
     async function checkAuth() {
       try {
