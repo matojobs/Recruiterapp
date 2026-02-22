@@ -1,10 +1,11 @@
 /**
  * API client for backend integration.
  * Handles JWT authentication, base URL, and request/response transformation.
+ * Production backend: https://api.jobsmato.com/api (used when deployed on Vercel if env not set).
  */
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'
-const AUTH_BASE_URL = process.env.NEXT_PUBLIC_AUTH_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'
+const DEFAULT_API_URL = process.env.VERCEL ? 'https://api.jobsmato.com/api' : 'http://localhost:5000/api'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
+const AUTH_BASE_URL = process.env.NEXT_PUBLIC_AUTH_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
 
 // Token storage key
 const TOKEN_KEY = 'recruiter_auth_token'

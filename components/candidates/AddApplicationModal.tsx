@@ -39,6 +39,7 @@ export default function AddApplicationModal({
     current_ctc: '',
     // Application fields
     portal: '',
+    portal_other: '',
     job_role_id: '',
     company_id: '',
     assigned_date: '',
@@ -107,6 +108,7 @@ export default function AddApplicationModal({
         work_exp_years: '',
         current_ctc: '',
         portal: '',
+        portal_other: '',
         job_role_id: '',
         company_id: '',
         assigned_date: new Date().toISOString().split('T')[0],
@@ -136,9 +138,10 @@ export default function AddApplicationModal({
         current_ctc: formData.current_ctc ? parseFloat(formData.current_ctc) : null,
       })
 
-      // Then create application
+      // Then create application (use custom portal text when "Others" selected)
+      const portalValue = formData.portal === 'Others' ? (formData.portal_other?.trim() || null) : (formData.portal || null)
       const applicationData = {
-        portal: formData.portal || null,
+        portal: portalValue,
         job_role_id: formData.job_role_id || null,
         assigned_date: formData.assigned_date || null,
         candidate_id: candidate.id,
@@ -230,12 +233,29 @@ export default function AddApplicationModal({
           <div className="mb-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Application Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Portal"
-                value={formData.portal}
-                onChange={(e) => setFormData({ ...formData, portal: e.target.value })}
-                placeholder="e.g., Naukri, LinkedIn, etc."
-              />
+              <div>
+                <Select
+                  label="Portal"
+                  value={formData.portal}
+                  onChange={(e) => setFormData({ ...formData, portal: e.target.value })}
+                  options={[
+                    { value: 'WorkIndia', label: 'WorkIndia' },
+                    { value: 'Job Hai', label: 'Job Hai' },
+                    { value: 'Apna', label: 'Apna' },
+                    { value: 'Refral', label: 'Refral' },
+                    { value: 'Others', label: 'Others' },
+                  ]}
+                />
+                {formData.portal === 'Others' && (
+                  <Input
+                    label="Specify portal"
+                    value={formData.portal_other}
+                    onChange={(e) => setFormData({ ...formData, portal_other: e.target.value })}
+                    placeholder="Enter portal name"
+                    className="mt-2"
+                  />
+                )}
+              </div>
               <div>
                 <Select
                   label="Company"

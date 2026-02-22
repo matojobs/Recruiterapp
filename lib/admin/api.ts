@@ -17,10 +17,11 @@ import type {
   SettingItem,
 } from './types'
 
+const DEFAULT_API_URL = process.env.VERCEL ? 'https://api.jobsmato.com/api' : 'http://localhost:5000/api'
 const getBaseURL = () =>
   typeof window !== 'undefined'
-    ? process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'
-    : process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000/api'
+    ? process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
+    : process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
 
 function createClient(): AxiosInstance {
   const client = axios.create({
