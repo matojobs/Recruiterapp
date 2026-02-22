@@ -11,18 +11,16 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   const [loading, setLoading] = useState(true)
   const pathname = usePathname()
 
-  // Admin panel has its own layout and auth; do not wrap with recruiter sidebar/header
-  if (pathname?.startsWith('/admin')) {
-    return <>{children}</>
-  }
-
   useEffect(() => {
     async function checkAuth() {
       try {
         const currentUser = await getCurrentUser()
         const isLoginPage = pathname?.startsWith('/login')
-        
-        if (!currentUser && !isLoginPage) {
+        const isAdmin = pathname?.startsWith('/admin')
+
+        if (isAdmin) {
+          setIsAuthenticated(true)
+        } else if (!currentUser && !isLoginPage) {
           setIsAuthenticated(false)
         } else {
           setIsAuthenticated(true)
@@ -39,6 +37,12 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   }, [pathname])
 
   const isLoginPage = pathname?.startsWith('/login')
+  const isAdmin = pathname?.startsWith('/admin')
+
+  // Admin panel has its own layout and auth; do not wrap with recruiter sidebar/header
+  if (isAdmin) {
+    return <>{children}</>
+  }
 
   if (loading) {
     return (
