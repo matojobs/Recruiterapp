@@ -14,6 +14,8 @@ import type {
   AdminUser,
   CompaniesListResponse,
   JobsListResponse,
+  ApplicationsListResponse,
+  AdminJobApplication,
   SettingItem,
 } from './types'
 
@@ -308,6 +310,42 @@ export async function updateJobStatus(
 
 export async function deleteJob(id: number): Promise<{ success: boolean; message: string }> {
   const { data } = await getApi().delete(`/jobs/${id}`)
+  return data
+}
+
+// —— Applications (job portal applications; see ADMIN_JOB_APPLICATIONS.md) ——
+export async function getApplications(params?: {
+  page?: number
+  limit?: number
+  jobId?: number
+  userId?: number
+  status?: string
+}): Promise<ApplicationsListResponse> {
+  const query: Record<string, string | number> = {}
+  if (params?.page != null) query.page = params.page
+  if (params?.limit != null) query.limit = params.limit
+  if (params?.jobId != null) query.jobId = params.jobId
+  if (params?.userId != null) query.userId = params.userId
+  if (params?.status) query.status = params.status
+  const { data } = await getApi().get<ApplicationsListResponse>('/applications', { params: query })
+  return data
+}
+
+export async function getApplicationById(id: number): Promise<AdminJobApplication> {
+  const { data } = await getApi().get<AdminJobApplication>(`/applications/${id}`)
+  return data
+}
+
+export async function updateApplicationStatus(
+  id: number,
+  body: { status: string }
+): Promise<AdminJobApplication> {
+  const { data } = await getApi().patch<AdminJobApplication>(`/applications/${id}/status`, body)
+  return data
+}
+
+export async function deleteApplication(id: number): Promise<{ success: boolean; message: string }> {
+  const { data } = await getApi().delete(`/applications/${id}`)
   return data
 }
 

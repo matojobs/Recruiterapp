@@ -19,6 +19,16 @@ Each entry should include:
 
 ## Entries
 
+### 2025-02-18 — `feature` — Admin Job Applications page
+
+- **Summary:** Admin portal can list, view, edit status, and delete job (portal) applications. Page at `/admin/applications` with filters (jobId, userId, status), pagination, View detail modal, Edit status modal, and Delete with confirm. Permissions: view_applications, edit_applications, delete_applications.
+- **Details:**
+  - **docs/ADMIN_JOB_APPLICATIONS.md** — API spec: GET/PATCH/DELETE `/api/admin/applications`, status values, permissions, suggested UI.
+  - **lib/admin/types.ts** — AdminJobApplication, ApplicationsListResponse, AdminApplicationStatus; Permission extended with view_applications, edit_applications, delete_applications.
+  - **lib/admin/api.ts** — getApplications, getApplicationById, updateApplicationStatus, deleteApplication.
+  - **app/admin/applications/page.tsx** — List table, filters, View/Edit status/Delete actions, ViewApplicationModal, EditStatusModal, ConfirmDialog for delete.
+  - **components/admin/AdminSidebar.tsx** — “Job Applications” nav item (permission view_applications, icon P).
+
 ### 2025-02-18 — `docs` — Recruiter application update API (backend request)
 
 - **Summary:** Added full spec for recruiter application update: `PATCH /api/recruiter/applications/:id` with **every** field the frontend sends (portal, assigned_date, call_date, call_status, interested_status, not_interested_remark, interview_scheduled, interview_date, turnup, interview_status, selection_status, joining_status, joining_date, backout_date, backout_reason, hiring_manager_feedback, followup_date, notes). Backend is requested to accept and persist all of these; doc lists fields that must be supported and example body.

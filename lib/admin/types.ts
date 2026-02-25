@@ -126,6 +126,50 @@ export interface ActivityLogItem {
   [key: string]: unknown
 }
 
+/** Job application status for admin applications API (see ADMIN_JOB_APPLICATIONS.md). */
+export type AdminApplicationStatus =
+  | 'pending'
+  | 'reviewing'
+  | 'shortlisted'
+  | 'interview'
+  | 'rejected'
+  | 'accepted'
+  | 'withdrawn'
+
+export interface AdminJobApplication {
+  id: number
+  jobId: number
+  userId: number
+  status: string
+  candidateName?: string
+  candidateEmail?: string
+  candidatePhone?: string
+  coverLetter?: string | null
+  resume?: string | null
+  createdAt: string
+  updatedAt: string
+  job?: {
+    id: number
+    title: string
+    company?: { id: number; name: string; [key: string]: unknown }
+  }
+  user?: {
+    id: number
+    firstName?: string
+    lastName?: string
+    email?: string
+    phone?: string
+  }
+}
+
+export interface ApplicationsListResponse {
+  applications: AdminJobApplication[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
 export type Permission =
   | 'view_dashboard'
   | 'view_analytics'
@@ -146,6 +190,9 @@ export type Permission =
   | 'edit_jobs'
   | 'delete_jobs'
   | 'approve_jobs'
+  | 'view_applications'
+  | 'edit_applications'
+  | 'delete_applications'
   | 'bulk_operations'
   | 'manage_settings'
   | 'view_logs'

@@ -11,6 +11,7 @@ const items: { name: string; href: string; permission?: string; icon: string }[]
   { name: 'Users', href: '/admin/users', permission: 'view_users', icon: 'U' },
   { name: 'Companies', href: '/admin/companies', permission: 'view_companies', icon: 'C' },
   { name: 'Jobs', href: '/admin/jobs', permission: 'view_jobs', icon: 'J' },
+  { name: 'Job Applications', href: '/admin/applications', icon: 'P' },
   { name: 'Bulk Upload', href: '/admin/bulk-upload', permission: 'bulk_operations', icon: 'B' },
   { name: 'Settings', href: '/admin/settings', permission: 'manage_settings', icon: 'S' },
   { name: 'Logs', href: '/admin/logs', icon: 'L' },
