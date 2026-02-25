@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { getUsers, createUser, updateUser, deleteUser, verifyUser, suspendUser } from '@/lib/admin/api'
-import type { AdminUser } from '@/lib/admin/types'
+import type { AdminUser, AdminUserRole } from '@/lib/admin/types'
 import { PermissionGuard, useHasPermission } from '@/components/admin/PermissionGuard'
 import { DataTable } from '@/components/admin/DataTable'
 import type { Column } from '@/components/admin/DataTable'
@@ -353,7 +353,7 @@ function EditUserModal({ user, onClose, onSuccess }: { user: AdminUser; onClose:
           />
           <select
             value={form.role}
-            onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+            onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as AdminUserRole }))}
             className="w-full rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
           >
             <option value="job_seeker">Job Seeker</option>
@@ -482,7 +482,7 @@ function CreateUserModal({ onClose, onSuccess }: { onClose: () => void; onSucces
           />
           <select
             value={form.role}
-            onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+            onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as AdminUserRole }))}
             className="w-full rounded-lg border px-3 py-2"
           >
             <option value="job_seeker">Job Seeker</option>
