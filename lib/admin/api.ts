@@ -141,7 +141,7 @@ export async function createUser(body: {
 
 export async function updateUser(
   id: number,
-  body: Partial<{ firstName: string; lastName: string; email: string; role: string; isActive: boolean; isVerified: boolean }>
+  body: Partial<{ firstName: string; lastName: string; email: string; role: string; isActive: boolean; isVerified: boolean; canPostForAnyCompany: boolean }>
 ): Promise<{ success: boolean; user: AdminUser }> {
   const { data } = await getApi().put(`/users/${id}`, body)
   return data

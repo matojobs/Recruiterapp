@@ -25,11 +25,12 @@ export default function EditCandidateModal({
 
   useEffect(() => {
     if (application) {
+      const callStatus = application.call_status === 'call connected' ? 'Connected' : (application.call_status || '')
       setFormData({
         portal: application.portal || '',
         assigned_date: application.assigned_date || '',
         call_date: application.call_date || '',
-        call_status: application.call_status || '',
+        call_status: callStatus,
         interested_status: application.interested_status || '',
         not_interested_remark: application.not_interested_remark || '',
         interview_scheduled: application.interview_scheduled || false,
@@ -56,9 +57,10 @@ export default function EditCandidateModal({
     try {
       const updates: any = {}
       
-      // Convert empty strings to null
+      // Convert empty strings to null; normalize call_status (backend no longer stores "call connected")
       Object.keys(formData).forEach((key) => {
-        const value = formData[key as keyof Application]
+        let value = formData[key as keyof Application]
+        if (key === 'call_status' && value === 'call connected') value = 'Connected'
         updates[key] = value === '' ? null : value
       })
 
@@ -137,10 +139,12 @@ export default function EditCandidateModal({
                 value={formData.call_status || ''}
                 onChange={(e) => setFormData({ ...formData, call_status: e.target.value as any })}
                 options={[
+                  { value: '', label: 'Select...' },
                   { value: 'Busy', label: 'Busy' },
                   { value: 'RNR', label: 'RNR' },
                   { value: 'Connected', label: 'Connected' },
                   { value: 'Wrong Number', label: 'Wrong Number' },
+                  { value: 'Switch off', label: 'Switch off' },
                 ]}
               />
             </div>

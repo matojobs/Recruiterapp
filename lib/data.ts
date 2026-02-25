@@ -23,8 +23,13 @@ export const getApplication = backendApi.getApplication
 export const createApplication = backendApi.createApplication
 export const updateApplication = backendApi.updateApplication
 export const deleteApplication = backendApi.deleteApplication
+export const getSourcedJobRoles = backendApi.getSourcedJobRoles
+export const getPendingJobApplications = backendApi.getPendingJobApplications
+export const getJobApplicationById = backendApi.getJobApplicationById
+export const submitRecruiterCall = backendApi.submitRecruiterCall
 export const getDashboardStats = backendApi.getDashboardStats
 export const getPipelineFlow = backendApi.getPipelineFlow
+export type { SourcedJobRole, PendingJobApplication } from './backend-api'
 
-// Export backend auth functions
+// Export backend auth functions (recruiter portal only: login uses POST /api/auth/recruiter-login)
 export { login, getAuthToken, clearAuthToken } from './api-client'

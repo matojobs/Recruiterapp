@@ -9,11 +9,14 @@ import Button from '@/components/ui/Button'
 interface NotificationsDropdownProps {
   notifications: Notification[]
   onNotificationClick?: (notification: Notification) => void
+  /** Called when the user opens the dropdown (e.g. to lazy-load applications for notifications) */
+  onOpen?: () => void
 }
 
 export default function NotificationsDropdown({
   notifications,
   onNotificationClick,
+  onOpen,
 }: NotificationsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -82,7 +85,10 @@ export default function NotificationsDropdown({
   return (
     <div className="relative" ref={dropdownRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          if (!isOpen) onOpen?.()
+          setIsOpen(!isOpen)
+        }}
         className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
         aria-label="Notifications"
       >

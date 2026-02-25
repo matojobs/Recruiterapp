@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { getApplications, clearAuthToken } from '@/lib/data'
 import { getCurrentUser, getCurrentRecruiter } from '@/lib/auth-helper'
@@ -14,8 +14,20 @@ export default function Header() {
   const [recruiterId, setRecruiterId] = useState<string | undefined>()
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
+  const applicationsFetchedRef = useRef(false)
   const router = useRouter()
-  
+
+  const loadApplicationsForNotifications = useCallback(async () => {
+    if (applicationsFetchedRef.current || !recruiterId) return
+    applicationsFetchedRef.current = true
+    try {
+      const apps = await getApplications({ recruiter_id: recruiterId })
+      setApplications(apps)
+    } catch (e) {
+      applicationsFetchedRef.current = false
+    }
+  }, [recruiterId])
+
   const notifications = useNotifications(applications, recruiterId)
 
   useEffect(() => {
@@ -28,9 +40,6 @@ export default function Header() {
           if (recruiter) {
             setRecruiterName(recruiter.name)
           }
-          // Load applications for notifications
-          const apps = await getApplications({ recruiter_id: currentUser.recruiter_id })
-          setApplications(apps)
         }
       } catch (error) {
         console.error('Error loading recruiter:', error)
@@ -70,7 +79,12 @@ export default function Header() {
               day: 'numeric',
             })}
           </span>
-          {!loading && <NotificationsDropdown notifications={notifications} />}
+          {!loading && (
+            <NotificationsDropdown
+              notifications={notifications}
+              onOpen={loadApplicationsForNotifications}
+            />
+          )}
           <Button variant="outline" size="sm" onClick={handleLogout}>
             Logout
           </Button>

@@ -19,6 +19,29 @@ Each entry should include:
 
 ## Entries
 
+### 2025-02-18 — `docs` — Recruiter application update API (backend request)
+
+- **Summary:** Added full spec for recruiter application update: `PATCH /api/recruiter/applications/:id` with **every** field the frontend sends (portal, assigned_date, call_date, call_status, interested_status, not_interested_remark, interview_scheduled, interview_date, turnup, interview_status, selection_status, joining_status, joining_date, backout_date, backout_reason, hiring_manager_feedback, followup_date, notes). Backend is requested to accept and persist all of these; doc lists fields that must be supported and example body.
+- **Details:**
+  - **docs/RECRUITER_APPLICATION_UPDATE_API.md** — Endpoint, auth, full field table (types, description), §3 list of fields backend must support, example PATCH body, response and GET shape. Single reference for backend implementation.
+  - **lib/backend-api.ts** — `updateApplication()` PATCH body now includes all 18 fields above (no field omitted).
+- **Rule:** Keep **ACTIVITY_LOG.md** updated whenever adding API docs or substantive changes (no need to remind again).
+
+### 2025-02-18 — `docs` — Candidate Age backend requirement (single reference)
+
+- **Summary:** Added full spec for candidate age/DOB: where age is used in the frontend, APIs, required fields, candidate shape, examples, backend behaviour (sourcing vs job-portal), and frontend mapper. This file is the single reference for the contract and backend implementation.
+- **Details:**
+  - **docs/CANDIDATE_AGE_REQUIREMENT.md** — §§1–7: Where age is used, APIs (`GET /api/recruiter/applications`, `GET /api/recruiter/applications/:id`), required `age` or `date_of_birth` on candidate, candidate shape, example JSON, snake_case/camelCase, frontend `mapCandidate()` behaviour. §8: Backend behaviour (implemented): sourcing (candidate record age/DOB), job-portal (user.dateOfBirth → candidate.age & date_of_birth in merged list). §9: Summary (where, what, why, backend). Frontend accepts `age`, `date_of_birth`, `dob`, `dateOfBirth` and falls back to `user.dateOfBirth` when candidate has no age/DOB.
+
+### 2025-02-18 — `fix` — Recruiter dashboard: single source of truth from applications
+
+- **Summary:** Dashboard stats and pipeline flow now derived from applications so top cards, Pipeline Flow, and Candidate Age Statistics stay consistent. Resolves mismatch where stats showed 2 sourced but Pipeline Flow showed 0.
+- **Details:**
+  - **app/dashboard/page-client.tsx:** Load only `getApplications(recruiter_id)`; removed `getDashboardStats` and `getPipelineFlow`. Stats and flow are computed with `computeDashboardStatsFromApplications(apps)` and `computePipelineFlowFromApplications(apps)`. On error, set empty stats and `EMPTY_PIPELINE_FLOW`.
+  - **lib/utils.ts:** Added `computeDashboardStatsFromApplications(applications)` returning `DashboardStats` (totalSourced, callsDoneToday, connectedToday, interestedToday, notInterestedToday, interviewsScheduled, interviewsDoneToday, selectedThisMonth, joinedThisMonth, pendingJoining) using application fields and date filters for “today” and “this month”.
+  - **components/dashboard/SystemAgeStats.tsx:** When applications exist but no candidate age data (backend does not return `candidate.age`), show “—” for average/oldest/youngest and an inline note: “Age data is not provided by the backend for these candidates.” Total Candidates still shows application count.
+  - No new APIs required; dashboard uses existing `GET /api/recruiter/applications?recruiter_id=...`.
+
 ### 2025-02-18 — `feature` — Backend API Integration
 
 - **Summary:** Integrated live backend API with JWT authentication, field mapping, and dual-mode support (local/backend).

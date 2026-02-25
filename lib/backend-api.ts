@@ -3,7 +3,7 @@
  * These functions handle API requests and transform responses to frontend format.
  */
 
-import { apiGet, apiPost, apiPatch, apiDelete } from './api-client'
+import { apiGet, apiPost, apiPatch, apiDelete, apiApplicationsRequest } from './api-client'
 import {
   mapCompany,
   mapJobRole,
@@ -115,7 +115,22 @@ export async function createCandidate(candidate: Omit<Candidate, 'id' | 'created
   return mapCandidate(backend)
 }
 
-// Applications
+// Sourcing: job roles recruiter has sourced candidates for
+export interface SourcedJobRole {
+  jobRoleId: number
+  jobRoleName: string
+  department?: string
+  companyId: number
+  companyName: string
+  applicationCount: number
+}
+
+export async function getSourcedJobRoles(): Promise<SourcedJobRole[]> {
+  const backend = await apiGet<SourcedJobRole[] | { data?: SourcedJobRole[] }>('/sourced-job-roles')
+  return Array.isArray(backend) ? backend : backend?.data ?? []
+}
+
+// Applications (recruiter sourcing applications)
 
 export async function getApplications(filters?: ApplicationFilters): Promise<Application[]> {
   const query = buildQueryString(filters as Record<string, unknown>)
@@ -231,16 +246,24 @@ export async function updateApplication(id: string, updates: Partial<Application
     created_at: string
     updated_at: string
   }>(`/applications/${id}`, {
+    portal: updates.portal,
+    assigned_date: updates.assigned_date,
     call_date: updates.call_date,
     call_status: updates.call_status,
     interested_status: updates.interested_status,
+    not_interested_remark: updates.not_interested_remark,
+    interview_scheduled: updates.interview_scheduled,
+    interview_date: updates.interview_date,
+    turnup: updates.turnup,
+    interview_status: updates.interview_status,
     selection_status: updates.selection_status,
     joining_status: updates.joining_status,
-    notes: updates.notes,
-    // Include other fields backend might accept
-    interview_date: updates.interview_date,
-    interview_status: updates.interview_status,
     joining_date: updates.joining_date,
+    backout_date: updates.backout_date,
+    backout_reason: updates.backout_reason,
+    hiring_manager_feedback: updates.hiring_manager_feedback,
+    followup_date: updates.followup_date,
+    notes: updates.notes,
   })
   
   // Fetch full application with relations
@@ -278,4 +301,112 @@ export async function getPipelineFlow(filters?: ApplicationFilters): Promise<Pip
   const backend = await apiGet<Array<{ stage: string; count: number }>>(`/dashboard/pipeline${query}`)
   
   return mapPipelineFlow(backend)
+}
+
+// Job portal pending applications (GET /api/applications/pending, etc.)
+export interface PendingJobApplication {
+  id: number
+  jobId: number
+  userId: number
+  status: string
+  coverLetter?: string | null
+  resume?: string | null
+  appliedAt?: string
+  createdAt: string
+  updatedAt: string
+  recruiterCallDate?: string | null
+  recruiterCallStatus?: string | null
+  recruiterInterested?: boolean | null
+  expectedSalary?: string | null
+  user?: {
+    id: number
+    firstName?: string
+    lastName?: string
+    email?: string
+    phone?: string
+    location?: string
+    profile?: {
+      education?: string
+      skills?: string[]
+      location?: string
+      phone?: string
+      [key: string]: unknown
+    }
+  }
+  job?: {
+    id: number
+    title: string
+    company?: { id: number; name: string; logo?: string }
+  }
+}
+
+function normalizePendingApp(raw: Record<string, unknown>): PendingJobApplication {
+  const user = raw.user as Record<string, unknown> | undefined
+  const job = raw.job as Record<string, unknown> | undefined
+  const company = job?.company as Record<string, unknown> | undefined
+  return {
+    id: Number(raw.id ?? raw.application_id),
+    jobId: Number(raw.jobId ?? raw.job_id),
+    userId: Number(raw.userId ?? raw.user_id),
+    status: String(raw.status ?? ''),
+    coverLetter: (raw.coverLetter ?? raw.cover_letter) as string | null | undefined,
+    resume: (raw.resume ?? raw.resume_url) as string | null | undefined,
+    appliedAt: (raw.appliedAt ?? raw.applied_at) as string | undefined,
+    createdAt: String(raw.createdAt ?? raw.created_at ?? ''),
+    updatedAt: String(raw.updatedAt ?? raw.updated_at ?? ''),
+    recruiterCallDate: (raw.recruiterCallDate ?? raw.recruiter_call_date) as string | null | undefined,
+    recruiterCallStatus: (raw.recruiterCallStatus ?? raw.recruiter_call_status) as string | null | undefined,
+    recruiterInterested: (raw.recruiterInterested ?? raw.recruiter_interested) as boolean | null | undefined,
+    expectedSalary: (raw.expectedSalary ?? raw.expected_salary) as string | null | undefined,
+    user: user
+      ? {
+          id: Number(user.id),
+          firstName: (user.firstName ?? user.first_name) as string | undefined,
+          lastName: (user.lastName ?? user.last_name) as string | undefined,
+          email: (user.email as string) | undefined,
+          phone: (user.phone as string) | undefined,
+          location: (user.location as string) | undefined,
+          profile: user.profile
+            ? (() => {
+                const p = user.profile as Record<string, unknown>
+                return {
+                  ...p,
+                  education: p.education as string | undefined,
+                  skills: Array.isArray(p.skills) ? (p.skills as string[]) : undefined,
+                  location: p.location as string | undefined,
+                  phone: p.phone as string | undefined,
+                }
+              })()
+            : undefined,
+        }
+      : undefined,
+    job: job
+      ? {
+          id: Number(job.id),
+          title: String(job.title ?? ''),
+          company: company ? { id: Number(company.id), name: String(company.name), logo: (company.logo as string) | undefined } : undefined,
+        }
+      : undefined,
+  }
+}
+
+export async function getPendingJobApplications(): Promise<PendingJobApplication[]> {
+  const backend = await apiApplicationsRequest<unknown>('/pending')
+  const arr = Array.isArray(backend) ? backend : (backend as { data?: unknown[] })?.data ?? []
+  return arr.map((item) => normalizePendingApp(typeof item === 'object' && item != null ? (item as Record<string, unknown>) : {}))
+}
+
+export async function getJobApplicationById(id: number | string): Promise<PendingJobApplication> {
+  const raw = await apiApplicationsRequest<Record<string, unknown>>(`/${id}`)
+  return normalizePendingApp(raw)
+}
+
+export async function submitRecruiterCall(
+  id: number | string,
+  body: { callDate: string; callStatus: string; interested: boolean | null }
+): Promise<PendingJobApplication> {
+  return apiApplicationsRequest<PendingJobApplication>(`/${id}/recruiter-call`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
 }

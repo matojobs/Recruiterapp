@@ -13,6 +13,8 @@ import type {
   PipelineFlow,
 } from '@/types/database'
 
+let ageDebugLoggedOnce = false
+
 /**
  * Backend company response shape
  */
@@ -71,6 +73,13 @@ interface BackendCandidate {
   work_exp_years?: number | null
   portal_id?: number
   created_at: string
+  /** Age in years; preferred when backend provides it. See docs/CANDIDATE_AGE_REQUIREMENT.md */
+  age?: number | null
+  /** ISO date YYYY-MM-DD; used to compute age when age is not provided */
+  date_of_birth?: string | null
+  dob?: string | null
+  /** CamelCase variant (e.g. job-portal merged response) */
+  dateOfBirth?: string | null
 }
 
 /**
@@ -81,12 +90,23 @@ interface BackendApplication {
   recruiter_id: number | null
   candidate_id: number
   job_role_id: number | null
+  portal?: string | null
   assigned_date: string | null
   call_date: string | null
   call_status: string | null
   interested_status: string | null
+  not_interested_remark?: string | null
+  interview_scheduled?: boolean
+  interview_date?: string | null
+  turnup?: boolean | null
+  interview_status?: string | null
   selection_status: string | null
   joining_status: string | null
+  joining_date?: string | null
+  backout_date?: string | null
+  backout_reason?: string | null
+  hiring_manager_feedback?: string | null
+  followup_date?: string | null
   notes?: string | null
   created_at: string
   updated_at: string
@@ -177,6 +197,27 @@ export function mapRecruiter(backend: BackendRecruiter): Recruiter {
 /**
  * Map backend candidate to frontend format
  */
+function ageFromBackendCandidate(backend: BackendCandidate): number | null {
+  const raw = backend as Record<string, unknown>
+  const ageVal = raw.age ?? backend.age
+  if (ageVal != null && Number.isFinite(Number(ageVal))) return Math.floor(Number(ageVal))
+  const dob =
+    (raw.date_of_birth as string) ||
+    (raw.dob as string) ||
+    (raw.dateOfBirth as string) ||
+    backend.date_of_birth ||
+    backend.dob ||
+    backend.dateOfBirth
+  if (!dob || typeof dob !== 'string') return null
+  const birth = new Date(dob.slice(0, 10))
+  if (isNaN(birth.getTime())) return null
+  const today = new Date()
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age >= 0 && age <= 150 ? age : null
+}
+
 export function mapCandidate(backend: BackendCandidate): Candidate {
   return {
     id: String(backend.id),
@@ -185,7 +226,7 @@ export function mapCandidate(backend: BackendCandidate): Candidate {
     email: backend.email,
     qualification: backend.qualification,
     work_exp_years: backend.work_exp_years ?? null,
-    age: null, // Backend may not return age
+    age: ageFromBackendCandidate(backend),
     location: null, // Backend may not return location
     current_ctc: null, // Backend may not return current_ctc
     created_at: backend.created_at,
@@ -196,7 +237,7 @@ export function mapCandidate(backend: BackendCandidate): Candidate {
 /**
  * Map backend application to frontend format
  */
-export function mapApplication(backend: BackendApplication & { portal?: string | null }): Application {
+export function mapApplication(backend: BackendApplication): Application {
   // Handle company: backend may return it separately or nested in job_role
   let jobRole: JobRole | undefined
   if (backend.job_role) {
@@ -206,7 +247,48 @@ export function mapApplication(backend: BackendApplication & { portal?: string |
       jobRole.company = mapCompany(backend.company)
     }
   }
-  
+
+  // Build candidate payload: from candidate, or from user when no candidate (job-portal), or merge user DOB into candidate
+  const rawApp = backend as Record<string, unknown>
+  const user = rawApp.user as Record<string, unknown> | undefined
+  const userProfile = user?.profile as Record<string, unknown> | undefined
+  const userDob = (user?.dateOfBirth ?? user?.date_of_birth ?? userProfile?.dateOfBirth ?? userProfile?.date_of_birth ?? rawApp.date_of_birth ?? rawApp.dateOfBirth) as string | undefined
+  let candidatePayload: BackendCandidate | undefined = backend.candidate
+
+  if (candidatePayload) {
+    const c = candidatePayload as Record<string, unknown>
+    const hasAgeOrDob = c.age != null || c.date_of_birth != null || c.dob != null || c.dateOfBirth != null
+    if (!hasAgeOrDob && userDob) {
+      candidatePayload = { ...candidatePayload, dateOfBirth: userDob }
+    }
+  } else if (userDob || user) {
+    // No candidate object: build one from user so we at least have age/DOB (e.g. job-portal apps)
+    const firstName = (user?.firstName ?? user?.first_name) as string | undefined
+    const lastName = (user?.lastName ?? user?.last_name) as string | undefined
+    const name = [firstName, lastName].filter(Boolean).join(' ') || (user?.candidate_name as string) || 'Candidate'
+    candidatePayload = {
+      id: (user?.id ?? backend.candidate_id) as number,
+      candidate_name: name,
+      phone: (user?.phone as string | null) ?? null,
+      email: (user?.email as string | null) ?? null,
+      qualification: null,
+      created_at: (user?.createdAt ?? user?.created_at ?? backend.created_at) as string,
+      dateOfBirth: userDob ?? undefined,
+    }
+  }
+
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development' && !ageDebugLoggedOnce) {
+    const mappedAge = candidatePayload ? ageFromBackendCandidate(candidatePayload) : null
+    if (mappedAge === null && (backend.candidate || user)) {
+      ageDebugLoggedOnce = true
+      const cand = rawApp.candidate as Record<string, unknown> | undefined
+      console.warn(
+        '[Candidate age] No age/DOB parsed. Inspect backend response:',
+        { 'application.candidate keys': cand ? Object.keys(cand) : 'none', 'application.user keys': user ? Object.keys(user) : 'none', 'candidate sample': cand ? { age: cand.age, date_of_birth: cand.date_of_birth, dob: cand.dob, dateOfBirth: cand.dateOfBirth } : {}, 'user DOB': user ? { dateOfBirth: user.dateOfBirth, date_of_birth: user.date_of_birth, 'profile.dateOfBirth': userProfile?.dateOfBirth } : {} }
+      )
+    }
+  }
+
   return {
     id: String(backend.id),
     portal: backend.portal ?? null,
@@ -215,25 +297,25 @@ export function mapApplication(backend: BackendApplication & { portal?: string |
     recruiter_id: backend.recruiter_id ? String(backend.recruiter_id) : null,
     candidate_id: String(backend.candidate_id),
     call_date: backend.call_date,
-    call_status: backend.call_status as Application['call_status'],
+    call_status: (backend.call_status === 'call connected' ? 'Connected' : backend.call_status) as Application['call_status'],
     interested_status: backend.interested_status as Application['interested_status'],
-    not_interested_remark: null, // Backend may not return this
-    interview_scheduled: false, // Backend may not return this
-    interview_date: null, // Backend may not return this
-    turnup: null, // Backend may not return this
-    interview_status: null, // Backend may not return this
+    not_interested_remark: backend.not_interested_remark ?? null,
+    interview_scheduled: backend.interview_scheduled ?? false,
+    interview_date: backend.interview_date ?? null,
+    turnup: backend.turnup ?? null,
+    interview_status: (backend.interview_status as Application['interview_status']) ?? null,
     selection_status: backend.selection_status as Application['selection_status'],
     joining_status: backend.joining_status as Application['joining_status'],
-    joining_date: null, // Backend may not return this
-    backout_date: null, // Backend may not return this
-    backout_reason: null, // Backend may not return this
-    hiring_manager_feedback: null, // Backend may not return this
-    followup_date: null, // Backend may not return this
+    joining_date: backend.joining_date ?? null,
+    backout_date: backend.backout_date ?? null,
+    backout_reason: backend.backout_reason ?? null,
+    hiring_manager_feedback: backend.hiring_manager_feedback ?? null,
+    followup_date: backend.followup_date ?? null,
     notes: backend.notes ?? null,
     created_at: backend.created_at,
     updated_at: backend.updated_at,
     recruiter: backend.recruiter ? mapRecruiter(backend.recruiter) : undefined,
-    candidate: backend.candidate ? mapCandidate(backend.candidate) : undefined,
+    candidate: candidatePayload ? mapCandidate(candidatePayload) : undefined,
     job_role: jobRole,
   }
 }

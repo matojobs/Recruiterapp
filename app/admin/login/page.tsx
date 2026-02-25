@@ -33,7 +33,9 @@ export default function AdminLoginPage() {
       const msg = ax?.response?.data?.message ?? null
       const status = ax?.response?.status
       if (status === 401) {
-        setError(msg || 'Invalid email or password. This account may not have admin access.')
+        setError(msg || 'Admin access required. Use the correct portal for your role.')
+      } else if (status === 403) {
+        setError(msg || 'Not authorized.')
       } else {
         setError(msg || 'Invalid credentials')
       }

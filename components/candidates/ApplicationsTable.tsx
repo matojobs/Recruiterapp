@@ -7,6 +7,14 @@ import EditCandidateModal from './EditCandidateModal'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 
+function EditIcon({ className }: { className?: string }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden>
+      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+    </svg>
+  )
+}
+
 interface ApplicationsTableProps {
   applications: Application[]
   onUpdate: (id: string, updates: Partial<Application>) => Promise<void>
@@ -123,7 +131,10 @@ export default function ApplicationsTable({ applications, onUpdate }: Applicatio
               <tr>
                 {/* Edit - Frozen Column 1 */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20 border-r border-gray-200 min-w-[80px]">
-                  Edit
+                  <span className="inline-flex items-center gap-1">
+                    <EditIcon className="w-4 h-4" />
+                    Edit
+                  </span>
                 </th>
                 {/* Name - Frozen Column 2 */}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-[80px] bg-gray-50 z-20 border-r border-gray-200 min-w-[150px]">
@@ -245,7 +256,10 @@ export default function ApplicationsTable({ applications, onUpdate }: Applicatio
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEdit(app)}
+                        title="Edit candidate"
+                        className="inline-flex items-center gap-1.5"
                       >
+                        <EditIcon className="w-4 h-4 shrink-0" />
                         Edit
                       </Button>
                     </td>

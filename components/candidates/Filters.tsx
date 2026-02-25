@@ -4,19 +4,17 @@ import { useState } from 'react'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Input from '@/components/ui/Input'
-import type { Recruiter, Company, JobRole } from '@/types/database'
+import type { Company, JobRole } from '@/types/database'
 
 interface FiltersProps {
-  recruiters: Recruiter[]
   companies: Company[]
   jobRoles: JobRole[]
   onFilterChange: (filters: any) => void
   onExport: () => void
 }
 
-export default function Filters({ recruiters, companies, jobRoles, onFilterChange, onExport }: FiltersProps) {
+export default function Filters({ companies, jobRoles, onFilterChange, onExport }: FiltersProps) {
   const [filters, setFilters] = useState({
-    recruiter_id: '',
     company_id: '',
     job_role_id: '',
     portal: '',
@@ -37,7 +35,6 @@ export default function Filters({ recruiters, companies, jobRoles, onFilterChang
 
   function handleReset() {
     const emptyFilters = {
-      recruiter_id: '',
       company_id: '',
       job_role_id: '',
       portal: '',
@@ -67,12 +64,6 @@ export default function Filters({ recruiters, companies, jobRoles, onFilterChang
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Select
-          label="Recruiter"
-          value={filters.recruiter_id}
-          onChange={(e) => handleFilterChange('recruiter_id', e.target.value)}
-          options={recruiters.map((r) => ({ value: r.id, label: r.name }))}
-        />
         <Select
           label="Company"
           value={filters.company_id}

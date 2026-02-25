@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { getApplications, getRecruiters, getCompanies, getJobRoles, getPipelineFlow, updateApplication } from '@/lib/data'
+import { getApplications, getRecruiters, getCompanies, getJobRoles, updateApplication } from '@/lib/data'
 import type { Application, ApplicationFilters, Recruiter, Company, JobRole, PipelineFlow } from '@/types/database'
 import { EMPTY_PIPELINE_FLOW } from '@/types/database'
 import { calculateJoinedAge, formatJoinedAge, computePipelineFlowFromApplications } from '@/lib/utils'
@@ -63,42 +63,19 @@ export default function CandidatesPage() {
       }
       
       setApplications(data)
+      // Derive flow from the same applications so Flow Tracking always matches the table
+      setFlow(computePipelineFlowFromApplications(data))
     } catch (error) {
       console.error('Error loading applications:', error)
+      setFlow(EMPTY_PIPELINE_FLOW)
     } finally {
       setLoading(false)
     }
   }, [filters, searchQuery])
 
-  const loadFlow = useCallback(async () => {
-    try {
-      // Create filters without company_id (will calculate client-side)
-      const { company_id, ...serverFilters } = filters
-      let flowData = await getPipelineFlow(serverFilters)
-      
-      // If company_id filter is active, recalculate flow from current applications
-      if (company_id) {
-        const filteredApps = applications.filter((app) => app.job_role?.company?.id === company_id)
-        if (filteredApps.length > 0) {
-          flowData = computePipelineFlowFromApplications(filteredApps)
-        }
-      }
-      
-      setFlow(flowData)
-    } catch (error) {
-      console.error('Error loading flow:', error)
-    }
-  }, [filters, applications])
-
   useEffect(() => {
     loadApplications()
   }, [loadApplications])
-
-  useEffect(() => {
-    if (applications.length > 0 || Object.keys(filters).length === 0) {
-      loadFlow()
-    }
-  }, [loadFlow, applications.length, filters])
 
   async function loadData() {
     try {
@@ -120,10 +97,7 @@ export default function CandidatesPage() {
       const { updateApplication } = await import('@/lib/data')
       await updateApplication(id, updates)
       // Reload applications and flow immediately
-      await Promise.all([
-        loadApplications(),
-        loadFlow(),
-      ])
+      await loadApplications()
     } catch (error) {
       console.error('Error updating application:', error)
       alert('Failed to update candidate status. Please try again.')
@@ -227,7 +201,6 @@ export default function CandidatesPage() {
       <ApplicationsTable applications={applications} onUpdate={handleUpdate} />
 
       <Filters
-        recruiters={recruiters}
         companies={companies}
         jobRoles={jobRoles}
         onFilterChange={setFilters}

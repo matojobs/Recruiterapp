@@ -14,6 +14,8 @@ export interface AdminUser {
   status: string
   isActive: boolean
   isVerified?: boolean
+  /** When true (recruiter only), user sees all companies on job portal and can post for any company. */
+  canPostForAnyCompany?: boolean
   phone?: string
   location?: string
   company?: { id: number; name: string; [key: string]: unknown }

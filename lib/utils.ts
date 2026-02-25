@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import type { Application, PipelineFlow } from '@/types/database'
+import type { Application, PipelineFlow, DashboardStats } from '@/types/database'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -81,5 +81,26 @@ export function computePipelineFlowFromApplications(applications: Application[])
     interviewDone: applications.filter((app) => app.interview_status === 'Done').length,
     selected: applications.filter((app) => app.selection_status === 'Selected').length,
     joined: applications.filter((app) => app.joining_status === 'Joined').length,
+  }
+}
+
+const todayStr = () => new Date().toISOString().slice(0, 10)
+const thisMonthStart = () => new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+
+/** Compute dashboard stats from applications (single source of truth for dashboard). */
+export function computeDashboardStatsFromApplications(applications: Application[]): DashboardStats {
+  const today = todayStr()
+  const monthStart = thisMonthStart()
+  return {
+    totalSourced: applications.length,
+    callsDoneToday: applications.filter((app) => app.call_date && app.call_date.slice(0, 10) === today).length,
+    connectedToday: applications.filter((app) => app.call_date && app.call_date.slice(0, 10) === today && app.call_status === 'Connected').length,
+    interestedToday: applications.filter((app) => app.call_date && app.call_date.slice(0, 10) === today && app.interested_status === 'Yes').length,
+    notInterestedToday: applications.filter((app) => app.call_date && app.call_date.slice(0, 10) === today && app.interested_status === 'No').length,
+    interviewsScheduled: applications.filter((app) => app.interview_scheduled).length,
+    interviewsDoneToday: applications.filter((app) => app.interview_date && app.interview_date.toString().slice(0, 10) === today && app.interview_status === 'Done').length,
+    selectedThisMonth: applications.filter((app) => app.selection_status === 'Selected').length,
+    joinedThisMonth: applications.filter((app) => app.joining_status === 'Joined' && app.joining_date && app.joining_date.slice(0, 10) >= monthStart).length,
+    pendingJoining: applications.filter((app) => app.selection_status === 'Selected' && app.joining_status !== 'Joined').length,
   }
 }

@@ -26,8 +26,11 @@ export default function AdminUsersPage() {
   const [actionLoading, setActionLoading] = useState(false)
 
   const canCreate = useHasPermission('create_users')
+  const canEdit = useHasPermission('edit_users')
   const canDelete = useHasPermission('delete_users')
+  const canVerify = useHasPermission('verify_users')
   const canSuspend = useHasPermission('suspend_users')
+  const [editOpen, setEditOpen] = useState<AdminUser | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -71,6 +74,60 @@ export default function AdminUsersPage() {
       header: 'Created',
       render: (r) => (r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '-'),
     },
+    ...((canEdit || canDelete || canVerify || canSuspend)
+      ? [
+          {
+            key: 'actions',
+            header: 'Actions',
+            render: (r: AdminUser) => (
+              <div className="flex flex-wrap gap-2">
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen(r)}
+                    className="rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    Edit
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteOpen({ id: r.id, name: `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.email })}
+                    className="rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-600 dark:text-red-400 dark:hover:bg-red-900/20"
+                  >
+                    Delete
+                  </button>
+                )}
+                {canVerify && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setActionLoading(true)
+                      await verifyUser(r.id)
+                      setActionLoading(false)
+                      load()
+                    }}
+                    disabled={actionLoading}
+                    className="rounded border border-green-300 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50 dark:border-green-600 dark:text-green-400 dark:hover:bg-green-900/20 disabled:opacity-50"
+                  >
+                    Verify
+                  </button>
+                )}
+                {canSuspend && (
+                  <button
+                    type="button"
+                    onClick={() => setSuspendOpen({ id: r.id, name: `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.email })}
+                    className="rounded border border-amber-300 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                  >
+                    Suspend
+                  </button>
+                )}
+              </div>
+            ),
+          } as Column<AdminUser>,
+        ]
+      : []),
   ]
 
   return (
@@ -215,7 +272,136 @@ export default function AdminUsersPage() {
           loading={actionLoading}
         />
       )}
+
+      {editOpen && (
+        <EditUserModal
+          user={editOpen}
+          onClose={() => setEditOpen(null)}
+          onSuccess={() => {
+            setEditOpen(null)
+            load()
+          }}
+        />
+      )}
     </PermissionGuard>
+  )
+}
+
+function EditUserModal({ user, onClose, onSuccess }: { user: AdminUser; onClose: () => void; onSuccess: () => void }) {
+  const [form, setForm] = useState({
+    firstName: user.firstName || '',
+    lastName: user.lastName || '',
+    email: user.email || '',
+    role: user.role || 'recruiter',
+    isActive: user.isActive ?? true,
+    isVerified: user.isVerified ?? false,
+    canPostForAnyCompany: user.canPostForAnyCompany ?? false,
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      await updateUser(user.id, {
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        role: form.role,
+        isActive: form.isActive,
+        isVerified: form.isVerified,
+        canPostForAnyCompany: form.canPostForAnyCompany,
+      })
+      onSuccess()
+    } catch (err: unknown) {
+      const msg = err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+        : 'Failed to update user'
+      setError(String(msg))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 dark:bg-gray-800">
+        <h2 className="text-lg font-semibold">Edit User</h2>
+        <form onSubmit={submit} className="mt-4 space-y-3">
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <input
+            placeholder="First name"
+            value={form.firstName}
+            onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+            className="w-full rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          />
+          <input
+            placeholder="Last name"
+            value={form.lastName}
+            onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+            className="w-full rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          />
+          <input
+            required
+            placeholder="Email"
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            className="w-full rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          />
+          <select
+            value={form.role}
+            onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
+            className="w-full rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          >
+            <option value="job_seeker">Job Seeker</option>
+            <option value="employer">Employer</option>
+            <option value="recruiter">Recruiter</option>
+            <option value="admin">Admin</option>
+          </select>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={form.isActive}
+              onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+              className="rounded border-gray-300"
+            />
+            <span className="text-sm">Active</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={form.isVerified}
+              onChange={(e) => setForm((f) => ({ ...f, isVerified: e.target.checked }))}
+              className="rounded border-gray-300"
+            />
+            <span className="text-sm">Verified</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={form.canPostForAnyCompany}
+              onChange={(e) => setForm((f) => ({ ...f, canPostForAnyCompany: e.target.checked }))}
+              className="rounded border-gray-300"
+            />
+            <span className="text-sm">Can post jobs for any company on job portal</span>
+          </label>
+          {form.role === 'recruiter' && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">When enabled, this recruiter will see all companies in the job portal and can post/manage jobs for any company.</p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 dark:border-gray-600">
+              Cancel
+            </button>
+            <button type="submit" disabled={loading} className="rounded-lg bg-indigo-600 px-4 py-2 text-white disabled:opacity-50">
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   )
 }
 

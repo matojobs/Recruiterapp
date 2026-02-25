@@ -4,12 +4,13 @@ import { useEffect, useState, useCallback } from 'react'
 import StatsCards from '@/components/dashboard/StatsCards'
 import PipelineFlow from '@/components/dashboard/PipelineFlow'
 import CandidateList from '@/components/dashboard/CandidateList'
-import SystemAgeStats from '@/components/dashboard/SystemAgeStats'
 import JoinedAgeStats from '@/components/dashboard/JoinedAgeStats'
 import AddApplicationModal from '@/components/candidates/AddApplicationModal'
-import { getDashboardStats, getPipelineFlow, getApplications, getRecruiters, createApplication } from '@/lib/data'
+import { getApplications, getRecruiters, createApplication } from '@/lib/data'
 import { getCurrentUser, getCurrentRecruiter } from '@/lib/auth-helper'
+import { computePipelineFlowFromApplications, computeDashboardStatsFromApplications } from '@/lib/utils'
 import type { DashboardStats, PipelineFlow as PipelineFlowType, Application, Recruiter } from '@/types/database'
+import { EMPTY_PIPELINE_FLOW } from '@/types/database'
 
 export default function DashboardPageClient() {
   const [recruiter, setRecruiter] = useState<Recruiter | null>(null)
@@ -33,17 +34,14 @@ export default function DashboardPageClient() {
         setRecruiter(recruiterData as any)
       }
 
-      const [statsData, flowData, appsData] = await Promise.all([
-        getDashboardStats(currentUser.recruiter_id),
-        getPipelineFlow({ recruiter_id: currentUser.recruiter_id }),
-        getApplications({ recruiter_id: currentUser.recruiter_id }),
-      ])
-
-      setStats(statsData)
-      setFlow(flowData)
+      const appsData = await getApplications({ recruiter_id: currentUser.recruiter_id })
       setApplications(appsData)
+      setStats(computeDashboardStatsFromApplications(appsData))
+      setFlow(computePipelineFlowFromApplications(appsData))
     } catch (error) {
       console.error('Error loading dashboard:', error)
+      setStats(computeDashboardStatsFromApplications([]))
+      setFlow(EMPTY_PIPELINE_FLOW)
     } finally {
       setLoading(false)
     }
@@ -87,15 +85,9 @@ export default function DashboardPageClient() {
           </p>
         </div>
       </div>
-      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-800">
-          ✅ Running in <strong>Local Mode</strong> - Data stored in browser localStorage
-        </p>
-      </div>
       <StatsCards stats={stats} />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="mb-6">
         <PipelineFlow flow={flow} />
-        <SystemAgeStats applications={applications} />
       </div>
       <div className="mb-6">
         <JoinedAgeStats applications={applications} />

@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getApplications, getRecruiters, getCompanies, getPipelineFlow } from '@/lib/data'
+import { getApplications, getRecruiters, getCompanies } from '@/lib/data'
 import type { Application, Recruiter, Company, PipelineFlow } from '@/types/database'
 import { EMPTY_PIPELINE_FLOW } from '@/types/database'
-import { calculatePercentage } from '@/lib/utils'
+import { calculatePercentage, computePipelineFlowFromApplications } from '@/lib/utils'
 import Button from '@/components/ui/Button'
 import * as XLSX from 'xlsx'
 
@@ -24,18 +24,18 @@ export default function ReportsPage() {
   async function loadData() {
     try {
       setLoading(true)
-      const [apps, recs, comps, flowData] = await Promise.all([
+      const [apps, recs, comps] = await Promise.all([
         getApplications(),
         getRecruiters(),
         getCompanies(),
-        getPipelineFlow(),
       ])
       setApplications(apps)
       setRecruiters(recs)
       setCompanies(comps)
-      setFlow(flowData)
+      setFlow(computePipelineFlowFromApplications(apps))
     } catch (error) {
       console.error('Error loading data:', error)
+      setFlow(EMPTY_PIPELINE_FLOW)
     } finally {
       setLoading(false)
     }

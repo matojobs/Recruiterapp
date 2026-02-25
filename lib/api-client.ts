@@ -84,10 +84,11 @@ async function apiRequest<T>(
 }
 
 /**
- * Login and get JWT token
+ * Recruiter portal login only.
+ * Uses POST /api/auth/recruiter-login so only users with role recruiter can log in here.
+ * Do not use general /api/auth/login on the recruiter portal.
  */
 export async function login(email: string, password: string): Promise<{ accessToken: string; user: { id: number; email: string; role: string } }> {
-  // Backend response type (actual)
   type BackendLoginResponse = {
     accessToken?: string
     refreshToken?: string
@@ -98,48 +99,33 @@ export async function login(email: string, password: string): Promise<{ accessTo
     role?: string
     user?: { id: number; email: string; role: string }
   }
-  const url = `${AUTH_BASE_URL}/auth/login`
-  console.log('🔐 [api-client] login() function called')
-  console.log('🔐 [api-client] Login API call:', { url, email, AUTH_BASE_URL })
-  console.log('🔐 [api-client] About to make fetch request to:', url)
-  
+  const url = `${AUTH_BASE_URL}/auth/recruiter-login`
+
   try {
-    console.log('🔐 [api-client] Making fetch request NOW...')
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     })
-    console.log('🔐 [api-client] Fetch request completed, response received')
-
-    console.log('📡 Login response status:', response.status, response.statusText)
 
     if (!response.ok) {
       let errorMessage = `Login failed: ${response.status} ${response.statusText}`
       try {
         const errorData = await response.json()
         errorMessage = errorData.message || errorData.error || errorMessage
-        console.error('❌ Login error response:', errorData)
+        if (response.status === 401 && !errorData.message && !errorData.error) {
+          errorMessage = 'Recruiter access required. Use the job portal or admin panel for your role.'
+        }
       } catch {
-        // Ignore JSON parse errors
-        const text = await response.text()
-        console.error('❌ Login failed - response text:', text)
+        if (response.status === 401) {
+          errorMessage = 'Recruiter access required. Use the job portal or admin panel for your role.'
+        }
       }
       throw new Error(errorMessage)
     }
 
     const data: BackendLoginResponse = await response.json()
-    console.log('✅ Login success - raw response:', data)
-    console.log('🔍 Raw data fields:', { 
-      accessToken: !!data.accessToken, 
-      userId: data.userId, 
-      id: data.id, 
-      email: data.email,
-      hasUser: !!data.user 
-    })
-    
+
     // Transform backend response to match frontend expectations
     // Backend returns: { accessToken, refreshToken, userId, email, fullName, ... }
     // Frontend expects: { accessToken, user: { id, email, role } }
@@ -224,4 +210,35 @@ export async function apiPatch<T>(endpoint: string, body: unknown): Promise<T> {
  */
 export async function apiDelete<T>(endpoint: string): Promise<T> {
   return apiRequest<T>(endpoint, { method: 'DELETE' })
+}
+
+/**
+ * Job portal applications API (GET /api/applications/*, PATCH /api/applications/:id/recruiter-call).
+ * Uses recruiter token; for pending list and recruiter-call submit.
+ */
+export async function apiApplicationsRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getAuthToken()
+  const url = `${API_BASE_URL}/applications${path}`
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers,
+  }
+  const response = await fetch(url, { ...options, headers })
+  if (!response.ok) {
+    if (response.status === 401) {
+      clearAuthToken()
+      if (typeof window !== 'undefined') window.location.href = '/login'
+      throw new Error('Unauthorized')
+    }
+    let msg = `API error: ${response.status}`
+    try {
+      const d = await response.json()
+      msg = (d as { message?: string }).message || msg
+    } catch { /* ignore */ }
+    throw new Error(msg)
+  }
+  const ct = response.headers.get('content-type')
+  if (!ct || !ct.includes('application/json')) return {} as T
+  return response.json()
 }
