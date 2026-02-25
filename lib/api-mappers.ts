@@ -198,7 +198,7 @@ export function mapRecruiter(backend: BackendRecruiter): Recruiter {
  * Map backend candidate to frontend format
  */
 function ageFromBackendCandidate(backend: BackendCandidate): number | null {
-  const raw = backend as Record<string, unknown>
+  const raw = backend as unknown as Record<string, unknown>
   const ageVal = raw.age ?? backend.age
   if (ageVal != null && Number.isFinite(Number(ageVal))) return Math.floor(Number(ageVal))
   const dob =
@@ -249,14 +249,14 @@ export function mapApplication(backend: BackendApplication): Application {
   }
 
   // Build candidate payload: from candidate, or from user when no candidate (job-portal), or merge user DOB into candidate
-  const rawApp = backend as Record<string, unknown>
+  const rawApp = backend as unknown as Record<string, unknown>
   const user = rawApp.user as Record<string, unknown> | undefined
   const userProfile = user?.profile as Record<string, unknown> | undefined
   const userDob = (user?.dateOfBirth ?? user?.date_of_birth ?? userProfile?.dateOfBirth ?? userProfile?.date_of_birth ?? rawApp.date_of_birth ?? rawApp.dateOfBirth) as string | undefined
   let candidatePayload: BackendCandidate | undefined = backend.candidate
 
   if (candidatePayload) {
-    const c = candidatePayload as Record<string, unknown>
+    const c = candidatePayload as unknown as Record<string, unknown>
     const hasAgeOrDob = c.age != null || c.date_of_birth != null || c.dob != null || c.dateOfBirth != null
     if (!hasAgeOrDob && userDob) {
       candidatePayload = { ...candidatePayload, dateOfBirth: userDob }
@@ -281,7 +281,7 @@ export function mapApplication(backend: BackendApplication): Application {
     const mappedAge = candidatePayload ? ageFromBackendCandidate(candidatePayload) : null
     if (mappedAge === null && (backend.candidate || user)) {
       ageDebugLoggedOnce = true
-      const cand = rawApp.candidate as Record<string, unknown> | undefined
+      const cand = rawApp.candidate as unknown as Record<string, unknown> | undefined
       console.warn(
         '[Candidate age] No age/DOB parsed. Inspect backend response:',
         { 'application.candidate keys': cand ? Object.keys(cand) : 'none', 'application.user keys': user ? Object.keys(user) : 'none', 'candidate sample': cand ? { age: cand.age, date_of_birth: cand.date_of_birth, dob: cand.dob, dateOfBirth: cand.dateOfBirth } : {}, 'user DOB': user ? { dateOfBirth: user.dateOfBirth, date_of_birth: user.date_of_birth, 'profile.dateOfBirth': userProfile?.dateOfBirth } : {} }

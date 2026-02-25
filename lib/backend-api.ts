@@ -363,9 +363,9 @@ function normalizePendingApp(raw: Record<string, unknown>): PendingJobApplicatio
           id: Number(user.id),
           firstName: (user.firstName ?? user.first_name) as string | undefined,
           lastName: (user.lastName ?? user.last_name) as string | undefined,
-          email: (user.email as string) | undefined,
-          phone: (user.phone as string) | undefined,
-          location: (user.location as string) | undefined,
+          email: user.email != null ? String(user.email) : undefined,
+          phone: user.phone != null ? String(user.phone) : undefined,
+          location: user.location != null ? String(user.location) : undefined,
           profile: user.profile
             ? (() => {
                 const p = user.profile as Record<string, unknown>
@@ -384,7 +384,7 @@ function normalizePendingApp(raw: Record<string, unknown>): PendingJobApplicatio
       ? {
           id: Number(job.id),
           title: String(job.title ?? ''),
-          company: company ? { id: Number(company.id), name: String(company.name), logo: (company.logo as string) | undefined } : undefined,
+          company: company ? { id: Number(company.id), name: String(company.name), logo: company.logo != null ? String(company.logo) : undefined } : undefined,
         }
       : undefined,
   }

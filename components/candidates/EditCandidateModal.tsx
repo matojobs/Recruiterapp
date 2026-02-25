@@ -25,7 +25,7 @@ export default function EditCandidateModal({
 
   useEffect(() => {
     if (application) {
-      const callStatus = application.call_status === 'call connected' ? 'Connected' : (application.call_status || '')
+      const callStatus = (application.call_status as string | null) === 'call connected' ? 'Connected' : (application.call_status || '')
       setFormData({
         portal: application.portal || '',
         assigned_date: application.assigned_date || '',
