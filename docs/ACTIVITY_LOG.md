@@ -19,6 +19,16 @@ Each entry should include:
 
 ## Entries
 
+### 2025-02-18 — `feature` — Location as searchable Indian cities dropdown
+
+- **Summary:** Location fields are now a searchable dropdown using the list of Indian cities/towns from `list_of_cities_and_towns_in_india-834j.csv`. Users can type to filter by city name or state; value stored as "City, State".
+- **Details:**
+  - **lib/indian-cities.json** — Generated from CSV (1211 entries: name, state).
+  - **components/ui/LocationDropdown.tsx** — Searchable combobox: type to filter, keyboard (Arrow Up/Down, Enter, Escape), click to select. Displays "City, State".
+  - **components/candidates/AddApplicationModal.tsx** — Location field uses LocationDropdown.
+  - **app/admin/users/page.tsx** — Create User modal location uses LocationDropdown.
+  - **app/admin/companies/page.tsx** — Create and Edit Company modals location use LocationDropdown.
+
 ### 2025-02-18 — `feature` — Admin Job Applications page
 
 - **Summary:** Admin portal can list, view, edit status, and delete job (portal) applications. Page at `/admin/applications` with filters (jobId, userId, status), pagination, View detail modal, Edit status modal, and Delete with confirm. Permissions: view_applications, edit_applications, delete_applications.

@@ -15,6 +15,7 @@ import { DataTable } from '@/components/admin/DataTable'
 import type { Column } from '@/components/admin/DataTable'
 import { StatusBadge, statusToVariant } from '@/components/admin/StatusBadge'
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog'
+import LocationDropdown from '@/components/ui/LocationDropdown'
 
 export default function AdminCompaniesPage() {
   const [companies, setCompanies] = useState<AdminCompany[]>([])
@@ -327,7 +328,7 @@ function CreateCompanyModal({ onClose, onSuccess }: { onClose: () => void; onSuc
             <option value="large">Large</option>
             <option value="enterprise">Enterprise</option>
           </select>
-          <input placeholder="Location" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} className="w-full rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+          <LocationDropdown placeholder="Search city..." value={form.location} onChange={(location) => setForm((f) => ({ ...f, location }))} />
           <input placeholder="Founded year" type="number" value={form.foundedYear} onChange={(e) => setForm((f) => ({ ...f, foundedYear: e.target.value }))} className="w-full rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
           <textarea placeholder="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2} className="w-full rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
           <div className="flex justify-end gap-2">
@@ -396,7 +397,7 @@ function EditCompanyModal({ company, onClose, onSuccess }: { company: AdminCompa
             <option value="large">Large</option>
             <option value="enterprise">Enterprise</option>
           </select>
-          <input placeholder="Location" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} className="w-full rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+          <LocationDropdown placeholder="Search city..." value={form.location} onChange={(location) => setForm((f) => ({ ...f, location }))} />
           <input placeholder="Founded year" type="number" value={form.foundedYear} onChange={(e) => setForm((f) => ({ ...f, foundedYear: e.target.value }))} className="w-full rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
           <textarea placeholder="Admin notes" value={form.adminNotes} onChange={(e) => setForm((f) => ({ ...f, adminNotes: e.target.value }))} rows={2} className="w-full rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
           <textarea placeholder="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={2} className="w-full rounded-lg border px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />

@@ -8,6 +8,7 @@ import { DataTable } from '@/components/admin/DataTable'
 import type { Column } from '@/components/admin/DataTable'
 import { StatusBadge, statusToVariant } from '@/components/admin/StatusBadge'
 import { ConfirmDialog } from '@/components/admin/ConfirmDialog'
+import LocationDropdown from '@/components/ui/LocationDropdown'
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
@@ -496,11 +497,10 @@ function CreateUserModal({ onClose, onSuccess }: { onClose: () => void; onSucces
             onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
             className="w-full rounded-lg border px-3 py-2"
           />
-          <input
-            placeholder="Location"
+          <LocationDropdown
+            placeholder="Search city..."
             value={form.location}
-            onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
-            className="w-full rounded-lg border px-3 py-2"
+            onChange={(location) => setForm((f) => ({ ...f, location }))}
           />
           <div className="flex justify-end gap-2">
             <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2">

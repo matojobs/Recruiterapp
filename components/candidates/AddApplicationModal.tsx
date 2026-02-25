@@ -6,6 +6,7 @@ import type { Recruiter, Company, JobRole, Candidate } from '@/types/database'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
+import LocationDropdown from '@/components/ui/LocationDropdown'
 
 interface AddApplicationModalProps {
   isOpen: boolean
@@ -209,10 +210,11 @@ export default function AddApplicationModal({
                 value={formData.age}
                 onChange={(e) => setFormData({ ...formData, age: e.target.value })}
               />
-              <Input
+              <LocationDropdown
                 label="Location"
                 value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                onChange={(location) => setFormData({ ...formData, location })}
+                placeholder="Search city..."
               />
               <Input
                 label="Work Experience (Years)"
