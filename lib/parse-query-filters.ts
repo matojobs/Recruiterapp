@@ -1,6 +1,7 @@
 import type { ApplicationFilters } from '@/types/database'
 
-const APPLICATION_FILTER_KEYS: (keyof ApplicationFilters)[] = [
+/** URL query keys that are string filters (excludes page/limit which are numbers). */
+const APPLICATION_FILTER_KEYS: (keyof Omit<ApplicationFilters, 'page' | 'limit'>)[] = [
   'recruiter_id',
   'company_id',
   'job_role_id',

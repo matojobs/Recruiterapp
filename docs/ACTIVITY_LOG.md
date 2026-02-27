@@ -19,6 +19,22 @@ Each entry should include:
 
 ## Entries
 
+### 2025-02-18 — `docs` — Admin dashboard & analytics APIs
+
+- **Summary:** Single reference for admin dashboard stats and analytics endpoints under `/api/admin/dashboard/*` with response shapes and how the React admin dashboard should use them.
+- **Details:**
+  - **docs/ADMIN_DASHBOARD_AND_ANALYTICS_API.md** — Documents `GET /dashboard/stats`, `GET /dashboard/analytics/users`, `GET /dashboard/analytics/jobs`, `GET /dashboard/analytics/applications`, expected JSON, and mapping to UI cards/charts. All require `view_analytics` permission and admin JWT.
+  - **lib/admin/api.ts** — Already uses these endpoints via `getDashboardStats`, `getUserAnalytics`, `getJobAnalytics`, `getApplicationAnalytics`; this doc is now the contract for backend.
+
+### 2025-02-18 — `fix` — Dashboard and Candidates: request more than 20 applications/candidates
+
+- **Summary:** Frontend was only receiving up to 20 applications and 20 candidates because the backend defaults to limit=20. We now send **limit=1000** (and page=1 for applications) so Dashboard and Candidates pages can show the full list.
+- **Details:**
+  - **lib/backend-api.ts:** `getApplications()` builds query with pagination `{ page: 1, limit: 1000 }` by default (DEFAULT_APPLICATIONS_LIMIT). `getCandidates()` sends `limit=1000` (DEFAULT_CANDIDATES_LIMIT). Callers can override via ApplicationFilters.page/limit.
+  - **types/database.ts:** ApplicationFilters extended with optional `page` and `limit`.
+  - **lib/parse-query-filters.ts:** Filter keys typed to exclude page/limit so URL parsing stays string-only.
+  - **scripts/seed-dummy-applications.md:** How to verify (backend must honor limit param; how to create dummy data).
+
 ### 2025-02-18 — `feature` — Location as searchable Indian cities dropdown
 
 - **Summary:** Location fields are now a searchable dropdown using the list of Indian cities/towns from `list_of_cities_and_towns_in_india-834j.csv`. Users can type to filter by city name or state; value stored as "City, State".

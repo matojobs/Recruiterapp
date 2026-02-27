@@ -6,7 +6,7 @@ import PipelineFlow from '@/components/dashboard/PipelineFlow'
 import CandidateList from '@/components/dashboard/CandidateList'
 import JoinedAgeStats from '@/components/dashboard/JoinedAgeStats'
 import AddApplicationModal from '@/components/candidates/AddApplicationModal'
-import { getApplications, getRecruiters, createApplication } from '@/lib/data'
+import { getDashboardStats, getPipelineFlow, getApplications, getRecruiters, createApplication } from '@/lib/data'
 import { getCurrentUser, getCurrentRecruiter } from '@/lib/auth-helper'
 import { computePipelineFlowFromApplications, computeDashboardStatsFromApplications } from '@/lib/utils'
 import type { DashboardStats, PipelineFlow as PipelineFlowType, Application, Recruiter } from '@/types/database'
@@ -34,13 +34,19 @@ export default function DashboardPageClient() {
         setRecruiter(recruiterData as any)
       }
 
-      const appsData = await getApplications({ recruiter_id: currentUser.recruiter_id })
+      const recruiterId = currentUser.recruiter_id ? String(currentUser.recruiter_id) : undefined
+      const [statsData, flowData, appsData] = await Promise.all([
+        getDashboardStats(recruiterId),
+        getPipelineFlow(recruiterId ? { recruiter_id: recruiterId } : {}),
+        // For candidate list / age stats we only need the first page; backend stats are the source of truth
+        getApplications(recruiterId ? { recruiter_id: recruiterId, page: 1, limit: 50 } : { page: 1, limit: 50 }),
+      ])
       setApplications(appsData)
-      setStats(computeDashboardStatsFromApplications(appsData))
-      setFlow(computePipelineFlowFromApplications(appsData))
+      setStats(statsData)
+      setFlow(flowData)
     } catch (error) {
       console.error('Error loading dashboard:', error)
-      setStats(computeDashboardStatsFromApplications([]))
+      setStats(null)
       setFlow(EMPTY_PIPELINE_FLOW)
     } finally {
       setLoading(false)

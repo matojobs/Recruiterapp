@@ -348,12 +348,31 @@ export function mapPipelineFlow(stages: BackendPipelineStage[]): PipelineFlow {
   return {
     sourced: stageMap.get('new applications') || stageMap.get('sourced') || 0,
     callDone: stageMap.get('contacted') || stageMap.get('call done') || 0,
-    connected: 0, // Backend doesn't have this stage
+    connected: stageMap.get('connected') ?? 0,
     interested: stageMap.get('interested') || 0,
     notInterested: stageMap.get('not interested') || 0,
     interviewScheduled: stageMap.get('interview scheduled') || 0,
-    interviewDone: 0, // Backend doesn't have this stage
+    interviewDone: stageMap.get('interview done') ?? 0,
     selected: stageMap.get('selected') || 0,
     joined: stageMap.get('joined') || 0,
+  }
+}
+
+/**
+ * Map backend today-progress object (snake_case) to PipelineFlow.
+ * Used when API returns { sourced, call_done, connected, ... } instead of array.
+ */
+export function mapPipelineFlowFromObject(obj: Record<string, unknown>): PipelineFlow {
+  const num = (key: string) => (typeof obj[key] === 'number' ? (obj[key] as number) : 0)
+  return {
+    sourced: num('sourced'),
+    callDone: num('call_done'),
+    connected: num('connected'),
+    interested: num('interested'),
+    notInterested: num('not_interested'),
+    interviewScheduled: num('interview_scheduled'),
+    interviewDone: num('interview_done'),
+    selected: num('selected'),
+    joined: num('joined'),
   }
 }

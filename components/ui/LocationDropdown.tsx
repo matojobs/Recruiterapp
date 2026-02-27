@@ -34,6 +34,7 @@ interface LocationDropdownProps {
   placeholder?: string
   className?: string
   id?: string
+  error?: string
 }
 
 export default function LocationDropdown({
@@ -43,6 +44,7 @@ export default function LocationDropdown({
   placeholder = 'Search city...',
   className,
   id,
+  error,
 }: LocationDropdownProps) {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState(value)
@@ -163,6 +165,7 @@ export default function LocationDropdown({
           })}
         </ul>
       )}
+      {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
     </div>
   )
 }

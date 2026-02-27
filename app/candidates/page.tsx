@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { getApplications, getRecruiters, getCompanies, getJobRoles, updateApplication } from '@/lib/data'
-import type { Application, ApplicationFilters, Recruiter, Company, JobRole, PipelineFlow } from '@/types/database'
+import { getApplicationsPage, getRecruiters, getCompanies, getJobRoles, getRecruiterTodayProgress, updateApplication } from '@/lib/data'
+import { getCurrentUser } from '@/lib/auth-helper'
+import type { Application, ApplicationFilters, ApplicationPage, Recruiter, Company, JobRole, PipelineFlow } from '@/types/database'
 import { EMPTY_PIPELINE_FLOW } from '@/types/database'
-import { calculateJoinedAge, formatJoinedAge, computePipelineFlowFromApplications } from '@/lib/utils'
+import { calculateJoinedAge, formatJoinedAge } from '@/lib/utils'
 import ApplicationsTable from '@/components/candidates/ApplicationsTable'
 import Filters from '@/components/candidates/Filters'
 import FlowTracking from '@/components/candidates/FlowTracking'
@@ -22,6 +23,9 @@ export default function CandidatesPage() {
   const [filters, setFilters] = useState<ApplicationFilters>({})
   const [searchQuery, setSearchQuery] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [total, setTotal] = useState(0)
 
   useEffect(() => {
     loadData()
@@ -31,9 +35,23 @@ export default function CandidatesPage() {
   const loadApplications = useCallback(async () => {
     try {
       setLoading(true)
-      // Create filters without company_id (will filter client-side)
+      // Create filters without company_id (will filter client-side for the table)
       const { company_id, ...serverFilters } = filters
-      let data = await getApplications(serverFilters)
+
+      const user = await getCurrentUser()
+      const recruiterId = user?.recruiter_id ? String(user.recruiter_id) : undefined
+
+      const [pageResult, flowData] = await Promise.all([
+        getApplicationsPage({
+          ...serverFilters,
+          page,
+          limit,
+        }),
+        // Flow Tracking shows recruiter today progress (today-only pipeline counts).
+        getRecruiterTodayProgress(recruiterId),
+      ])
+
+      let data = pageResult.applications
       
       // Filter by company_id client-side if provided
       if (company_id) {
@@ -63,19 +81,24 @@ export default function CandidatesPage() {
       }
       
       setApplications(data)
-      // Derive flow from the same applications so Flow Tracking always matches the table
-      setFlow(computePipelineFlowFromApplications(data))
+      setTotal(pageResult.total)
+      setFlow(flowData)
     } catch (error) {
       console.error('Error loading applications:', error)
       setFlow(EMPTY_PIPELINE_FLOW)
     } finally {
       setLoading(false)
     }
-  }, [filters, searchQuery])
+  }, [filters, searchQuery, page, limit])
 
   useEffect(() => {
     loadApplications()
   }, [loadApplications])
+
+  // Reset to first page when filters or search change
+  useEffect(() => {
+    setPage(1)
+  }, [filters, searchQuery])
 
   async function loadData() {
     try {
@@ -198,7 +221,18 @@ export default function CandidatesPage() {
         )}
       </div>
 
-      <ApplicationsTable applications={applications} onUpdate={handleUpdate} />
+      <ApplicationsTable
+        applications={applications}
+        page={page}
+        limit={limit}
+        total={total}
+        onPageChange={setPage}
+        onPageSizeChange={(nextLimit) => {
+          setLimit(nextLimit)
+          setPage(1)
+        }}
+        onUpdate={handleUpdate}
+      />
 
       <Filters
         companies={companies}

@@ -12,6 +12,7 @@ import {
   mapApplication,
   mapDashboardStats,
   mapPipelineFlow,
+  mapPipelineFlowFromObject,
   mapCompanyWithJobRoles,
 } from './api-mappers'
 import type { CompanyWithJobRoles } from './api-mappers'
@@ -22,6 +23,7 @@ import type {
   Candidate,
   Application,
   ApplicationFilters,
+  ApplicationPage,
   DashboardStats,
   PipelineFlow,
 } from '@/types/database'
@@ -96,8 +98,14 @@ export async function createJobRole(jobRole: Omit<JobRole, 'id' | 'created_at' |
   return mapJobRole(backend)
 }
 
+/** Default limit for candidates list so we get more than backend default (e.g. 20). */
+const DEFAULT_CANDIDATES_LIMIT = 1000
+
 export async function getCandidates(search?: string): Promise<Candidate[]> {
-  const query = search ? `?search=${encodeURIComponent(search)}` : ''
+  const params = new URLSearchParams()
+  if (search) params.set('search', search)
+  params.set('limit', String(DEFAULT_CANDIDATES_LIMIT))
+  const query = params.toString() ? `?${params.toString()}` : ''
   const backend = await apiGet<any>(`/candidates${query}`)
   const candidates = Array.isArray(backend) ? backend : (backend?.data || backend?.items || [])
   return candidates.map(mapCandidate)
@@ -131,10 +139,21 @@ export async function getSourcedJobRoles(): Promise<SourcedJobRole[]> {
 }
 
 // Applications (recruiter sourcing applications)
+/** Default page size when caller does not specify limit. */
+const DEFAULT_APPLICATIONS_PAGE_SIZE = 50
 
-export async function getApplications(filters?: ApplicationFilters): Promise<Application[]> {
-  const query = buildQueryString(filters as Record<string, unknown>)
-  const backend = await apiGet<Array<{
+/** Paginated applications list; used by Candidates page and sourcing detail. */
+export async function getApplicationsPage(
+  filters?: ApplicationFilters
+): Promise<ApplicationPage> {
+  const { page, limit, ...rest } = (filters || {}) as ApplicationFilters
+  const pagination = {
+    page: page ?? 1,
+    limit: limit ?? DEFAULT_APPLICATIONS_PAGE_SIZE,
+  }
+  const query = buildQueryString(rest as Record<string, unknown>, pagination)
+  const backend = await apiGet<
+  | Array<{
     id: number
     recruiter_id: number | null
     candidate_id: number
@@ -153,23 +172,63 @@ export async function getApplications(filters?: ApplicationFilters): Promise<App
     job_role?: { id: number; company_id: number; role_name: string; department?: string; is_active?: boolean; created_at: string; company?: { id: number; name: string; slug?: string; description?: string; industry?: string | null; size?: string; website?: string; job_roles_count?: number; created_at?: string } }
     company?: { id: number; name: string; slug?: string; description?: string; industry?: string | null; size?: string; website?: string; job_roles_count?: number; created_at?: string }
     recruiter?: { id: number; name: string; email: string; phone?: string; is_active?: boolean; created_at: string; updated_at: string }
-  }> | { data?: Array<any>; applications?: Array<any>; items?: Array<any> }>(`/applications${query}`)
+  }>
+  | {
+      data?: Array<any>
+      applications?: Array<any>
+      items?: Array<any>
+      total?: number
+      page?: number
+      limit?: number
+      total_pages?: number
+    }
+  >(`/applications${query}`)
   
   // Handle different response formats
   let applications: any[]
+  let total = 0
+  let currentPage = pagination.page
+  let currentLimit = pagination.limit
+  let totalPages: number | undefined
+
   if (Array.isArray(backend)) {
     applications = backend
+    total = backend.length
   } else if (backend && typeof backend === 'object') {
     // Handle paginated or wrapped responses
     applications = (backend as any).data || (backend as any).applications || (backend as any).items || []
+    total = (backend as any).total ?? applications.length
+    currentPage = (backend as any).page ?? pagination.page
+    currentLimit = (backend as any).limit ?? pagination.limit
+    const apiTotalPages = (backend as any).total_pages as number | undefined
+    totalPages = apiTotalPages ?? (total && currentLimit ? Math.ceil(total / currentLimit) : undefined)
   } else {
     console.error('❌ Unexpected backend response format:', backend)
     applications = []
+    total = 0
   }
   
-  console.log('📦 getApplications - backend response:', { isArray: Array.isArray(backend), applicationsCount: applications.length })
-  
-  return applications.map(mapApplication)
+  console.log('📦 getApplicationsPage - backend response:', {
+    isArray: Array.isArray(backend),
+    applicationsCount: applications.length,
+    total,
+    page: currentPage,
+    limit: currentLimit,
+  })
+
+  return {
+    applications: applications.map(mapApplication),
+    total,
+    page: currentPage,
+    limit: currentLimit,
+    totalPages,
+  }
+}
+
+/** Backwards-compatible helper for callers that only need the list (no pagination metadata). */
+export async function getApplications(filters?: ApplicationFilters): Promise<Application[]> {
+  const page = await getApplicationsPage(filters)
+  return page.applications
 }
 
 export async function getApplication(id: string): Promise<Application> {
@@ -301,6 +360,26 @@ export async function getPipelineFlow(filters?: ApplicationFilters): Promise<Pip
   const backend = await apiGet<Array<{ stage: string; count: number }>>(`/dashboard/pipeline${query}`)
   
   return mapPipelineFlow(backend)
+}
+
+/**
+ * Recruiter today progress: pipeline stage counts for the current day only.
+ * Used by the Candidates page Flow Tracking widget.
+ * See docs/RECRUITER_TODAY_PROGRESS_API.md.
+ * Accepts either array of { stage, count } or object { sourced, call_done, ... }.
+ */
+export async function getRecruiterTodayProgress(recruiterId?: string): Promise<PipelineFlow> {
+  const query = recruiterId ? `?recruiter_id=${encodeURIComponent(recruiterId)}` : ''
+  const backend = await apiGet<
+    Array<{ stage: string; count: number }> | Record<string, unknown>
+  >(`/dashboard/today-progress${query}`)
+  if (Array.isArray(backend)) {
+    return mapPipelineFlow(backend)
+  }
+  if (backend && typeof backend === 'object' && !Array.isArray(backend)) {
+    return mapPipelineFlowFromObject(backend as Record<string, unknown>)
+  }
+  return mapPipelineFlow([])
 }
 
 // Job portal pending applications (GET /api/applications/pending, etc.)

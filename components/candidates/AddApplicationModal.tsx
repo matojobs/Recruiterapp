@@ -28,6 +28,8 @@ export default function AddApplicationModal({
   const [companyJobRoles, setCompanyJobRoles] = useState<JobRole[]>([])
   const [loadingCompanies, setLoadingCompanies] = useState(false)
   const [loadingJobRoles, setLoadingJobRoles] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [apiError, setApiError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     // Candidate fields
     candidate_name: '',
@@ -119,11 +121,40 @@ export default function AddApplicationModal({
         notes: '',
       })
       setCompanyJobRoles([])
+      setErrors({})
+      setApiError(null)
     }
   }, [isOpen])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    // Client-side validation for required fields
+    const newErrors: Record<string, string> = {}
+    const trim = (v: string) => (v ?? '').toString().trim()
+
+    // Candidate required fields
+    if (!trim(formData.phone)) newErrors.phone = 'Phone is required.'
+    if (!trim(formData.qualification)) newErrors.qualification = 'Qualification is required.'
+    if (!trim(formData.age)) newErrors.age = 'Age is required.'
+    if (!trim(formData.location)) newErrors.location = 'Location is required.'
+    if (!trim(formData.work_exp_years)) newErrors.work_exp_years = 'Work experience is required (use 0 for fresher).'
+
+    // Application required fields
+    if (!trim(formData.portal)) newErrors.portal = 'Portal is required.'
+    if (!trim(formData.company_id)) newErrors.company_id = 'Company is required.'
+    if (!trim(formData.job_role_id)) newErrors.job_role_id = 'Job Role is required.'
+    if (!trim(formData.assigned_date)) newErrors.assigned_date = 'Assigned Date is required.'
+    if (!trim(formData.call_date)) newErrors.call_date = 'Call Date is required.'
+    if (!trim(formData.call_status)) newErrors.call_status = 'Call Status is required.'
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors)
+      return
+    }
+
+    setErrors({})
+    setApiError(null)
     setLoading(true)
 
     try {
@@ -156,7 +187,15 @@ export default function AddApplicationModal({
       onClose()
     } catch (error) {
       console.error('Error creating application:', error)
-      alert('Failed to create application. Please try again.')
+      let message = 'Failed to create application. Please try again.'
+      if (error && typeof error === 'object' && 'message' in error) {
+        message = String((error as { message?: string }).message) || message
+      }
+      setApiError(message)
+      // If backend reports duplicate phone, highlight phone field
+      if (message.toLowerCase().includes('phone') && message.toLowerCase().includes('already exists')) {
+        setErrors((prev) => ({ ...prev, phone: message }))
+      }
     } finally {
       setLoading(false)
     }
@@ -178,6 +217,11 @@ export default function AddApplicationModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
+          {apiError && (
+            <div className="mb-4 text-sm text-red-600">
+              {apiError}
+            </div>
+          )}
           <div className="mb-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Candidate Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -188,10 +232,12 @@ export default function AddApplicationModal({
                 required
               />
               <Input
-                label="Phone"
+                label="Phone *"
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                required
+                error={errors.phone}
               />
               <Input
                 label="Email"
@@ -200,28 +246,40 @@ export default function AddApplicationModal({
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
               <Input
-                label="Qualification"
+                label="Qualification *"
                 value={formData.qualification}
                 onChange={(e) => setFormData({ ...formData, qualification: e.target.value })}
+                required
+                error={errors.qualification}
               />
               <Input
-                label="Age"
+                label="Age *"
                 type="number"
                 value={formData.age}
                 onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+                required
+                error={errors.age}
               />
               <LocationDropdown
-                label="Location"
+                label="Location *"
                 value={formData.location}
                 onChange={(location) => setFormData({ ...formData, location })}
                 placeholder="Search city..."
+                error={errors.location}
               />
-              <Input
-                label="Work Experience (Years)"
-                type="number"
-                value={formData.work_exp_years}
-                onChange={(e) => setFormData({ ...formData, work_exp_years: e.target.value })}
-              />
+              <div>
+                <Input
+                  label="Work Experience (Years) *"
+                  type="number"
+                  value={formData.work_exp_years}
+                  onChange={(e) => setFormData({ ...formData, work_exp_years: e.target.value })}
+                  required
+                  error={errors.work_exp_years}
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  For fresher, enter 0 in Work Experience (Years).
+                </p>
+              </div>
               <Input
                 label="Current CTC"
                 type="number"
@@ -237,7 +295,7 @@ export default function AddApplicationModal({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Select
-                  label="Portal"
+                  label="Portal *"
                   value={formData.portal}
                   onChange={(e) => setFormData({ ...formData, portal: e.target.value })}
                   options={[
@@ -247,6 +305,8 @@ export default function AddApplicationModal({
                     { value: 'Refral', label: 'Refral' },
                     { value: 'Others', label: 'Others' },
                   ]}
+                  required
+                  error={errors.portal}
                 />
                 {formData.portal === 'Others' && (
                   <Input
@@ -260,14 +320,16 @@ export default function AddApplicationModal({
               </div>
               <div>
                 <Select
-                  label="Company"
+                  label="Company *"
                   value={formData.company_id}
-                onChange={(e) => {
-                  setFormData({ ...formData, company_id: e.target.value, job_role_id: '' })
-                }}
-                options={companies.map((c) => ({ value: c.id, label: c.company_name }))}
-                disabled={loadingCompanies}
-              />
+                  onChange={(e) => {
+                    setFormData({ ...formData, company_id: e.target.value, job_role_id: '' })
+                  }}
+                  options={companies.map((c) => ({ value: c.id, label: c.company_name }))}
+                  disabled={loadingCompanies}
+                  required
+                  error={errors.company_id}
+                />
               {loadingCompanies && (
                 <div className="text-sm text-gray-500 mt-1">Loading companies...</div>
               )}
@@ -277,11 +339,13 @@ export default function AddApplicationModal({
               </div>
               <div>
                 <Select
-                  label="Job Role"
+                  label="Job Role *"
                   value={formData.job_role_id}
                   onChange={(e) => setFormData({ ...formData, job_role_id: e.target.value })}
                   options={companyJobRoles.map((jr) => ({ value: jr.id, label: jr.job_role }))}
                   disabled={!formData.company_id || loadingJobRoles}
+                  required
+                  error={errors.job_role_id}
                 />
                 {!formData.company_id && (
                   <div className="text-sm text-gray-500 mt-1">Select a company first</div>
@@ -294,19 +358,23 @@ export default function AddApplicationModal({
                 )}
               </div>
               <Input
-                label="Assigned Date"
+                label="Assigned Date *"
                 type="date"
                 value={formData.assigned_date}
                 onChange={(e) => setFormData({ ...formData, assigned_date: e.target.value })}
+                required
+                error={errors.assigned_date}
               />
               <Input
-                label="Call Date"
+                label="Call Date *"
                 type="date"
                 value={formData.call_date}
                 onChange={(e) => setFormData({ ...formData, call_date: e.target.value })}
+                required
+                error={errors.call_date}
               />
               <Select
-                label="Call Status"
+                label="Call Status *"
                 value={formData.call_status}
                 onChange={(e) => setFormData({ ...formData, call_status: e.target.value })}
                 options={[
@@ -315,6 +383,8 @@ export default function AddApplicationModal({
                   { value: 'Connected', label: 'Connected' },
                   { value: 'Wrong Number', label: 'Wrong Number' },
                 ]}
+                required
+                error={errors.call_status}
               />
               <Select
                 label="Interested Status"

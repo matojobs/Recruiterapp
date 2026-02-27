@@ -17,47 +17,30 @@ function EditIcon({ className }: { className?: string }) {
 
 interface ApplicationsTableProps {
   applications: Application[]
+  page: number
+  limit: number
+  total: number
+  onPageChange: (page: number) => void
+  onPageSizeChange: (limit: number) => void
   onUpdate: (id: string, updates: Partial<Application>) => Promise<void>
 }
 
-export default function ApplicationsTable({ applications, onUpdate }: ApplicationsTableProps) {
+export default function ApplicationsTable({
+  applications,
+  page,
+  limit,
+  total,
+  onPageChange,
+  onPageSizeChange,
+  onUpdate,
+}: ApplicationsTableProps) {
   const [editingApplication, setEditingApplication] = useState<Application | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
-  const [rowsPerPage, setRowsPerPage] = useState(10)
-  const [currentPage, setCurrentPage] = useState(1)
 
-  // Calculate pagination - ensure minimum 10 rows per page (unless total is less than 10)
-  let effectiveRowsPerPage = rowsPerPage
-  if (rowsPerPage >= applications.length) {
-    effectiveRowsPerPage = applications.length
-  } else if (applications.length >= 10) {
-    // If we have 10+ candidates, enforce minimum 10 rows per page
-    effectiveRowsPerPage = Math.max(10, rowsPerPage)
-  } else {
-    // If we have less than 10 candidates, show all
-    effectiveRowsPerPage = applications.length
-  }
-  const totalPages = Math.max(1, Math.ceil(applications.length / effectiveRowsPerPage))
-  const startIndex = (currentPage - 1) * effectiveRowsPerPage
-  const endIndex = startIndex + effectiveRowsPerPage
-  const paginatedApplications = useMemo(() => {
-    return applications.slice(startIndex, endIndex)
-  }, [applications, startIndex, endIndex])
-
-  // Reset to page 1 when rows per page changes - ensure minimum 10 (unless total is less)
-  const handleRowsPerPageChange = (value: string) => {
-    const newRowsPerPage = parseInt(value)
-    // If selecting "All", use total count, otherwise use the selected value (will be enforced to min 10 in effectiveRowsPerPage)
-    setRowsPerPage(newRowsPerPage)
-    setCurrentPage(1)
-  }
-
-  // Reset to page 1 when applications change or when current page is invalid
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(1)
-    }
-  }, [currentPage, applications.length, totalPages])
+  const totalPages = Math.max(1, Math.ceil((total || 0) / (limit || 1)))
+  const startIndex = total === 0 ? 0 : (page - 1) * limit + 1
+  const endIndex = total === 0 ? 0 : Math.min(page * limit, total)
+  const paginatedApplications = useMemo(() => applications, [applications])
 
   function handleEdit(app: Application) {
     setEditingApplication(app)
@@ -102,14 +85,13 @@ export default function ApplicationsTable({ applications, onUpdate }: Applicatio
         <div className="flex items-center space-x-4">
           <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Show:</label>
           <Select
-            value={rowsPerPage >= applications.length ? applications.length.toString() : rowsPerPage.toString()}
-            onChange={(e) => handleRowsPerPageChange(e.target.value)}
+            value={String(limit)}
+            onChange={(e) => onPageSizeChange(parseInt(e.target.value))}
             options={[
               { value: '10', label: '10' },
               { value: '20', label: '20' },
               { value: '50', label: '50' },
               { value: '100', label: '100' },
-              ...(applications.length > 0 ? [{ value: applications.length.toString(), label: `All (${applications.length})` }] : []),
             ]}
             className="w-36"
           />
@@ -117,9 +99,9 @@ export default function ApplicationsTable({ applications, onUpdate }: Applicatio
             rows per page
           </span>
         </div>
-        {applications.length > 0 && (
+        {total > 0 && (
           <div className="text-sm text-gray-600 whitespace-nowrap">
-            Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, applications.length)}</span> of <span className="font-medium">{applications.length}</span> candidate{applications.length !== 1 ? 's' : ''}
+            Showing <span className="font-medium">{startIndex}</span> to <span className="font-medium">{endIndex}</span> of <span className="font-medium">{total}</span> candidate{total !== 1 ? 's' : ''}
           </div>
         )}
       </div>
@@ -464,44 +446,44 @@ export default function ApplicationsTable({ applications, onUpdate }: Applicatio
       </div>
 
       {/* Pagination Controls - Bottom */}
-      {applications.length > 0 && (
+      {total > 0 && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mt-4 flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            Page {currentPage} of {totalPages}
+            Page {page} of {totalPages}
           </div>
           <div className="flex items-center space-x-2">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
+              onClick={() => onPageChange(1)}
+              disabled={page === 1}
             >
               First
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
+              onClick={() => onPageChange(Math.max(1, page - 1))}
+              disabled={page === 1}
             >
               Previous
             </Button>
             <span className="px-4 py-2 text-sm text-gray-700">
-              {currentPage} / {totalPages}
+              {page} / {totalPages}
             </span>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
+              onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+              disabled={page === totalPages}
             >
               Next
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setCurrentPage(totalPages)}
-              disabled={currentPage === totalPages}
+              onClick={() => onPageChange(totalPages)}
+              disabled={page === totalPages}
             >
               Last
             </Button>

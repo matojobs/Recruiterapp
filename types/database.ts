@@ -122,6 +122,19 @@ export interface ApplicationFilters {
   joining_status?: string
   date_from?: string
   date_to?: string
+  /** Page number (1-based). Used for server-side pagination. */
+  page?: number
+  /** Page size (limit) for server-side pagination. */
+  limit?: number
+}
+
+/** Paginated applications list returned by backend. */
+export interface ApplicationPage {
+  applications: Application[]
+  total: number
+  page: number
+  limit: number
+  totalPages?: number
 }
 
 export interface RecruiterPerformance {
