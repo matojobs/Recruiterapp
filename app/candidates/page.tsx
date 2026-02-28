@@ -35,30 +35,23 @@ export default function CandidatesPage() {
   const loadApplications = useCallback(async () => {
     try {
       setLoading(true)
-      // Create filters without company_id (will filter client-side for the table)
-      const { company_id, ...serverFilters } = filters
-
       const user = await getCurrentUser()
       const recruiterId = user?.recruiter_id ? String(user.recruiter_id) : undefined
 
+      // All filters (including company_id) go to the API; recruiter_id scopes to current user
       const [pageResult, flowData] = await Promise.all([
         getApplicationsPage({
-          ...serverFilters,
+          ...filters,
+          recruiter_id: recruiterId,
           page,
           limit,
         }),
-        // Flow Tracking shows recruiter today progress (today-only pipeline counts).
         getRecruiterTodayProgress(recruiterId),
       ])
 
       let data = pageResult.applications
-      
-      // Filter by company_id client-side if provided
-      if (company_id) {
-        data = data.filter((app) => app.job_role?.company?.id === company_id)
-      }
-      
-      // Apply search filter
+
+      // Search is client-side (backend may not support full-text search)
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase().trim()
         data = data.filter((app) => {
@@ -81,6 +74,7 @@ export default function CandidatesPage() {
       }
       
       setApplications(data)
+      // Total from API reflects server-side filters (recruiter, company, job role, status, dates)
       setTotal(pageResult.total)
       setFlow(flowData)
     } catch (error) {

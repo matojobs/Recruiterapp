@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Application } from '@/types/database'
+import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -137,15 +138,8 @@ export default function EditCandidateModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">Call Status</label>
               <Select
                 value={formData.call_status || ''}
-                onChange={(e) => setFormData({ ...formData, call_status: e.target.value as any })}
-                options={[
-                  { value: '', label: 'Select...' },
-                  { value: 'Busy', label: 'Busy' },
-                  { value: 'RNR', label: 'RNR' },
-                  { value: 'Connected', label: 'Connected' },
-                  { value: 'Wrong Number', label: 'Wrong Number' },
-                  { value: 'Switch off', label: 'Switch off' },
-                ]}
+                onChange={(e) => setFormData({ ...formData, call_status: e.target.value as Application['call_status'] })}
+                options={[{ value: '', label: 'Select...' }, ...CALL_STATUS_SELECT_OPTIONS]}
               />
             </div>
             <div>

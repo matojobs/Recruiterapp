@@ -297,7 +297,7 @@ export function mapApplication(backend: BackendApplication): Application {
     recruiter_id: backend.recruiter_id ? String(backend.recruiter_id) : null,
     candidate_id: String(backend.candidate_id),
     call_date: backend.call_date,
-    call_status: (backend.call_status === 'call connected' ? 'Connected' : backend.call_status) as Application['call_status'],
+    call_status: (backend.call_status === 'call connected' ? 'Connected' : backend.call_status === 'Switch off' ? 'Switched Off' : backend.call_status) as Application['call_status'],
     interested_status: backend.interested_status as Application['interested_status'],
     not_interested_remark: backend.not_interested_remark ?? null,
     interview_scheduled: backend.interview_scheduled ?? false,

@@ -27,7 +27,8 @@ All query parameters are optional. If `page` or `limit` are omitted, the backend
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `recruiter_id` | string | Filter by recruiter ID (e.g. for dashboard/candidates by recruiter). |
+| `recruiter_id` | string | Filter by recruiter ID (e.g. scope list to logged-in recruiter). |
+| `company_id` | string | Filter by company ID (e.g. via job_role.company_id). |
 | `job_role_id` | string | Filter by job role ID (e.g. for sourcing job-role page). |
 | `portal` | string | Filter by portal (e.g. WorkIndia, Naukri). |
 | `call_status` | string | Filter by call status (Busy, RNR, Connected, Wrong Number, etc.). |

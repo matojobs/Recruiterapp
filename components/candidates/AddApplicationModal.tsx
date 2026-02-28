@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { getCompanies, getCompanyById, createCandidate } from '@/lib/data'
 import type { Recruiter, Company, JobRole, Candidate } from '@/types/database'
+import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
@@ -377,12 +378,7 @@ export default function AddApplicationModal({
                 label="Call Status *"
                 value={formData.call_status}
                 onChange={(e) => setFormData({ ...formData, call_status: e.target.value })}
-                options={[
-                  { value: 'Busy', label: 'Busy' },
-                  { value: 'RNR', label: 'RNR' },
-                  { value: 'Connected', label: 'Connected' },
-                  { value: 'Wrong Number', label: 'Wrong Number' },
-                ]}
+                options={CALL_STATUS_SELECT_OPTIONS}
                 required
                 error={errors.call_status}
               />

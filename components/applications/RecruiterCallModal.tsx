@@ -6,14 +6,7 @@ import { getJobApplicationById, submitRecruiterCall } from '@/lib/data'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
-
-const CALL_STATUS_OPTIONS = [
-  { value: 'Busy', label: 'Busy' },
-  { value: 'RNR', label: 'RNR' },
-  { value: 'Connected', label: 'Connected' },
-  { value: 'Wrong Number', label: 'Wrong Number' },
-  { value: 'Switch off', label: 'Switch off' },
-]
+import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
 
 interface RecruiterCallModalProps {
   applicationId: number | null
@@ -39,6 +32,10 @@ export default function RecruiterCallModal({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [showMoreDetails, setShowMoreDetails] = useState(false)
+
+  useEffect(() => {
+    if (callStatus !== 'Connected') setInterested('')
+  }, [callStatus])
 
   useEffect(() => {
     if (!isOpen) return
@@ -225,28 +222,28 @@ export default function RecruiterCallModal({
                   <Select
                     value={callStatus}
                     onChange={(e) => setCallStatus(e.target.value)}
-                    options={[{ value: '', label: 'Select...' }, ...CALL_STATUS_OPTIONS]}
+                    options={[{ value: '', label: 'Select...' }, ...CALL_STATUS_SELECT_OPTIONS]}
                     required
                   />
                 </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Interested {callConnected ? '*' : '(required only when Connected)'}
-                  </label>
-                  <Select
-                    value={interested === '' ? '' : interested ? 'yes' : 'no'}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      setInterested(v === '' ? '' : v === 'yes' ? true : v === 'no' ? false : '')
-                    }}
-                    options={[
-                      { value: '', label: callConnected ? 'Select...' : 'Not applicable (call not connected)' },
-                      { value: 'yes', label: 'Yes' },
-                      { value: 'no', label: 'No' },
-                    ]}
-                    required={callConnected}
-                  />
-                </div>
+                {callConnected && (
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-700">Interested *</label>
+                    <Select
+                      value={interested === '' ? '' : interested ? 'yes' : 'no'}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setInterested(v === '' ? '' : v === 'yes' ? true : v === 'no' ? false : '')
+                      }}
+                      options={[
+                        { value: '', label: 'Select...' },
+                        { value: 'yes', label: 'Yes' },
+                        { value: 'no', label: 'No' },
+                      ]}
+                      required
+                    />
+                  </div>
+                )}
                 {submitError && (
                   <div className="rounded border border-red-200 bg-red-50 p-2 text-sm text-red-800">{submitError}</div>
                 )}

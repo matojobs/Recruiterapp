@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Input from '@/components/ui/Input'
 import type { Company, JobRole } from '@/types/database'
+import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
 
 interface FiltersProps {
   companies: Company[]
@@ -86,12 +87,7 @@ export default function Filters({ companies, jobRoles, onFilterChange, onExport 
           label="Call Status"
           value={filters.call_status}
           onChange={(e) => handleFilterChange('call_status', e.target.value)}
-          options={[
-            { value: 'Busy', label: 'Busy' },
-            { value: 'RNR', label: 'RNR' },
-            { value: 'Connected', label: 'Connected' },
-            { value: 'Wrong Number', label: 'Wrong Number' },
-          ]}
+          options={[{ value: '', label: 'All' }, ...CALL_STATUS_SELECT_OPTIONS]}
         />
         <Select
           label="Interested Status"

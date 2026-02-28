@@ -45,7 +45,7 @@ export interface Application {
   recruiter_id: string | null;
   candidate_id: string;
   call_date: string | null;
-  call_status: 'Busy' | 'RNR' | 'Connected' | 'Wrong Number' | null;
+  call_status: 'Connected' | 'RNR' | 'Busy' | 'Switched Off' | 'Incoming Off' | 'Call Back' | 'Invalid' | 'Wrong Number' | 'Out of network' | null;
   interested_status: 'Yes' | 'No' | 'Call Back Later' | null;
   not_interested_remark: string | null;
   interview_scheduled: boolean;
