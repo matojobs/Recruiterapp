@@ -33,7 +33,8 @@ All query parameters are optional. If `page` or `limit` are omitted, the backend
 | `portal` | string | Filter by portal (e.g. WorkIndia, Naukri). |
 | `call_status` | string | Filter by call status (Busy, RNR, Connected, Wrong Number, etc.). |
 | `interested_status` | string | Filter by interested status (Yes, No, Call Back Later). |
-| `interview_status` | string | Filter by interview status. |
+| `interview_scheduled` | string | Filter by whether interview is scheduled: `Yes` / `No` (backend may expect `true` / `false`). |
+| `interview_status` | string | Filter by interview status (Scheduled, Done, Not Attended, Rejected). |
 | `selection_status` | string | Filter by selection status. |
 | `joining_status` | string | Filter by joining status. |
 | `start_date` | string | Filter applications from this date (YYYY-MM-DD). Frontend sends `date_from` → backend may expect `start_date`. |

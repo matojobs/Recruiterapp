@@ -122,6 +122,7 @@ export default function EditCandidateModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Date</label>
               <Input
                 type="date"
+                placeholder="dd/mm/yyyy"
                 value={formData.assigned_date || ''}
                 onChange={(e) => setFormData({ ...formData, assigned_date: e.target.value })}
               />
@@ -130,6 +131,7 @@ export default function EditCandidateModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">Call Date</label>
               <Input
                 type="date"
+                placeholder="dd/mm/yyyy"
                 value={formData.call_date || ''}
                 onChange={(e) => setFormData({ ...formData, call_date: e.target.value })}
               />

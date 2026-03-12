@@ -38,43 +38,20 @@ export default function CandidatesPage() {
       const user = await getCurrentUser()
       const recruiterId = user?.recruiter_id ? String(user.recruiter_id) : undefined
 
-      // All filters (including company_id) go to the API; recruiter_id scopes to current user
+      // All filters + server-side search go to the API; recruiter_id scopes to current user
+      const searchTerm = searchQuery.trim() || undefined
       const [pageResult, flowData] = await Promise.all([
         getApplicationsPage({
           ...filters,
           recruiter_id: recruiterId,
+          search: searchTerm,
           page,
           limit,
         }),
         getRecruiterTodayProgress(recruiterId),
       ])
 
-      let data = pageResult.applications
-
-      // Search is client-side (backend may not support full-text search)
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase().trim()
-        data = data.filter((app) => {
-          const candidateName = app.candidate?.candidate_name?.toLowerCase() || ''
-          const phone = app.candidate?.phone?.toLowerCase() || ''
-          const email = app.candidate?.email?.toLowerCase() || ''
-          const jobRole = app.job_role?.job_role?.toLowerCase() || ''
-          const company = app.job_role?.company?.company_name?.toLowerCase() || ''
-          const portal = app.portal?.toLowerCase() || ''
-          
-          return (
-            candidateName.includes(query) ||
-            phone.includes(query) ||
-            email.includes(query) ||
-            jobRole.includes(query) ||
-            company.includes(query) ||
-            portal.includes(query)
-          )
-        })
-      }
-      
-      setApplications(data)
-      // Total from API reflects server-side filters (recruiter, company, job role, status, dates)
+      setApplications(pageResult.applications)
       setTotal(pageResult.total)
       setFlow(flowData)
     } catch (error) {
@@ -122,14 +99,22 @@ export default function CandidatesPage() {
     }
   }
 
-  async function handleAddApplication(applicationData: any) {
+  async function handleAddApplication(payload: any) {
     try {
-      const { createApplication } = await import('@/lib/data')
-      await createApplication(applicationData)
+      const { createApplicationWithCandidate } = await import('@/lib/data')
+
+      await createApplicationWithCandidate({
+        candidate: payload.candidate,
+        application: {
+          ...payload.application,
+          job_role_id: Number(payload.application.job_role_id),
+        },
+      })
+
       await loadApplications()
       // Flow will update automatically via useEffect
     } catch (error) {
-      console.error('Error creating application:', error)
+      console.error('Error creating application with candidate:', error)
       throw error
     }
   }
@@ -210,7 +195,7 @@ export default function CandidatesPage() {
         </div>
         {searchQuery && (
           <p className="text-sm text-gray-500 mt-2">
-            Found {applications.length} candidate{applications.length !== 1 ? 's' : ''} matching &quot;{searchQuery}&quot;
+            Found {total} candidate{total !== 1 ? 's' : ''} matching &quot;{searchQuery}&quot;
           </p>
         )}
       </div>

@@ -111,12 +111,15 @@ export const EMPTY_PIPELINE_FLOW: PipelineFlow = {
 
 /** Filters for listing applications (API query params and local filter). */
 export interface ApplicationFilters {
+  /** Server-side search: case-insensitive contains on candidate name, phone, email, portal, job role name, company name. */
+  search?: string
   recruiter_id?: string
   company_id?: string
   job_role_id?: string
   portal?: string
   call_status?: string
   interested_status?: string
+  interview_scheduled?: string
   interview_status?: string
   selection_status?: string
   joining_status?: string

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { getCompanies, getCompanyById, createCandidate } from '@/lib/data'
+import { getCompanies, getCompanyById } from '@/lib/data'
 import type { Recruiter, Company, JobRole, Candidate } from '@/types/database'
 import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
 import Button from '@/components/ui/Button'
@@ -116,7 +116,7 @@ export default function AddApplicationModal({
         job_role_id: '',
         company_id: '',
         assigned_date: new Date().toISOString().split('T')[0],
-        call_date: '',
+        call_date: new Date().toISOString().split('T')[0],
         call_status: '',
         interested_status: '',
         notes: '',
@@ -135,6 +135,7 @@ export default function AddApplicationModal({
     const trim = (v: string) => (v ?? '').toString().trim()
 
     // Candidate required fields
+    if (!trim(formData.candidate_name)) newErrors.candidate_name = 'Candidate name is required.'
     if (!trim(formData.phone)) newErrors.phone = 'Phone is required.'
     if (!trim(formData.qualification)) newErrors.qualification = 'Qualification is required.'
     if (!trim(formData.age)) newErrors.age = 'Age is required.'
@@ -159,32 +160,31 @@ export default function AddApplicationModal({
     setLoading(true)
 
     try {
-      // First create candidate via API
-      const candidate = await createCandidate({
+      // Use single transactional API via parent onSave (candidate + application together)
+      const portalValue = formData.portal === 'Others' ? (formData.portal_other?.trim() || null) : (formData.portal || null)
+
+      const candidatePayload = {
         candidate_name: formData.candidate_name,
-        phone: formData.phone || null,
+        phone: formData.phone,
         email: formData.email || null,
         qualification: formData.qualification || null,
-        age: formData.age ? parseInt(formData.age) : null,
-        location: formData.location || null,
-        work_exp_years: formData.work_exp_years ? parseInt(formData.work_exp_years) : null,
-        current_ctc: formData.current_ctc ? parseFloat(formData.current_ctc) : null,
-      })
+        work_exp_years: formData.work_exp_years ? Number(formData.work_exp_years) : null,
+        portal_id: null as number | null,
+        age: formData.age ? Number(formData.age) : null,
+        date_of_birth: null as string | null,
+      }
 
-      // Then create application (use custom portal text when "Others" selected)
-      const portalValue = formData.portal === 'Others' ? (formData.portal_other?.trim() || null) : (formData.portal || null)
-      const applicationData = {
+      const applicationPayload = {
         portal: portalValue,
-        job_role_id: formData.job_role_id || null,
-        assigned_date: formData.assigned_date || null,
-        candidate_id: candidate.id,
+        job_role_id: formData.job_role_id,
+        assigned_date: formData.assigned_date,
         call_date: formData.call_date || null,
         call_status: formData.call_status || null,
         interested_status: formData.interested_status || null,
         notes: formData.notes || null,
       }
 
-      await onSave(applicationData)
+      await onSave({ candidate: candidatePayload, application: applicationPayload })
       onClose()
     } catch (error) {
       console.error('Error creating application:', error)
@@ -231,6 +231,7 @@ export default function AddApplicationModal({
                 value={formData.candidate_name}
                 onChange={(e) => setFormData({ ...formData, candidate_name: e.target.value })}
                 required
+                error={errors.candidate_name}
               />
               <Input
                 label="Phone *"
@@ -369,6 +370,7 @@ export default function AddApplicationModal({
               <Input
                 label="Call Date *"
                 type="date"
+                placeholder="dd/mm/yyyy"
                 value={formData.call_date}
                 onChange={(e) => setFormData({ ...formData, call_date: e.target.value })}
                 required

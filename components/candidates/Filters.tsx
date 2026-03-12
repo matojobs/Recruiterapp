@@ -21,6 +21,7 @@ export default function Filters({ companies, jobRoles, onFilterChange, onExport 
     portal: '',
     call_status: '',
     interested_status: '',
+    interview_scheduled: '',
     interview_status: '',
     selection_status: '',
     joining_status: '',
@@ -41,6 +42,7 @@ export default function Filters({ companies, jobRoles, onFilterChange, onExport 
       portal: '',
       call_status: '',
       interested_status: '',
+      interview_scheduled: '',
       interview_status: '',
       selection_status: '',
       joining_status: '',
@@ -100,10 +102,21 @@ export default function Filters({ companies, jobRoles, onFilterChange, onExport 
           ]}
         />
         <Select
+          label="Interview Scheduled"
+          value={filters.interview_scheduled}
+          onChange={(e) => handleFilterChange('interview_scheduled', e.target.value)}
+          options={[
+            { value: '', label: 'All' },
+            { value: 'Yes', label: 'Yes' },
+            { value: 'No', label: 'No' },
+          ]}
+        />
+        <Select
           label="Interview Status"
           value={filters.interview_status}
           onChange={(e) => handleFilterChange('interview_status', e.target.value)}
           options={[
+            { value: '', label: 'All' },
             { value: 'Scheduled', label: 'Scheduled' },
             { value: 'Done', label: 'Done' },
             { value: 'Not Attended', label: 'Not Attended' },

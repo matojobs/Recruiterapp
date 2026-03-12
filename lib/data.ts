@@ -22,6 +22,7 @@ export const getApplications = backendApi.getApplications
 export const getApplicationsPage = backendApi.getApplicationsPage
 export const getApplication = backendApi.getApplication
 export const createApplication = backendApi.createApplication
+export const createApplicationWithCandidate = backendApi.createApplicationWithCandidate
 export const updateApplication = backendApi.updateApplication
 export const deleteApplication = backendApi.deleteApplication
 export const getSourcedJobRoles = backendApi.getSourcedJobRoles

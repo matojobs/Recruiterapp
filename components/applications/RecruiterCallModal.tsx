@@ -39,7 +39,8 @@ export default function RecruiterCallModal({
 
   useEffect(() => {
     if (!isOpen) return
-    setCallDate('')
+    // Default call date to today when modal opens
+    setCallDate(new Date().toISOString().split('T')[0])
     setCallStatus('')
     setInterested('')
     setSubmitError(null)
@@ -212,6 +213,7 @@ export default function RecruiterCallModal({
                   <label className="mb-1 block text-sm font-medium text-gray-700">Call Date *</label>
                   <Input
                     type="date"
+                placeholder="dd/mm/yyyy"
                     value={callDate}
                     onChange={(e) => setCallDate(e.target.value)}
                     required

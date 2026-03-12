@@ -45,6 +45,7 @@ function buildQueryString(filters?: Record<string, unknown>, pagination?: { page
         // Map frontend filter names to backend names
         if (key === 'date_from') params.append('start_date', String(value))
         else if (key === 'date_to') params.append('end_date', String(value))
+        else if (key === 'interview_scheduled') params.append(key, value === 'Yes' ? 'true' : value === 'No' ? 'false' : String(value))
         else params.append(key, String(value))
       }
     })
@@ -286,6 +287,50 @@ export async function createApplication(application: Omit<Application, 'id' | 'c
   
   // Fetch full application with relations
   return getApplication(String(backend.id))
+}
+
+/**
+ * Create candidate + application in a single transactional API call
+ * (POST /api/recruiter/applications/with-candidate).
+ * Expects the backend route documented in docs/RECRUITER_CREATE_CANDIDATE_WITH_APPLICATION_API.md.
+ */
+export async function createApplicationWithCandidate(payload: {
+  candidate: {
+    candidate_name: string
+    phone: string
+    email?: string | null
+    qualification?: string | null
+    work_exp_years?: number | null
+    portal_id?: number | null
+    age?: number | null
+    date_of_birth?: string | null
+  }
+  application: {
+    job_role_id: number
+    assigned_date: string
+    call_date?: string | null
+    call_status?: string | null
+    interested_status?: string | null
+    selection_status?: string | null
+    joining_status?: string | null
+    notes?: string | null
+  }
+}): Promise<Application> {
+  // Backend may require application.candidate_id for DTO validation; it ignores the value and uses the new candidate id
+  const body = {
+    candidate: payload.candidate,
+    application: { ...payload.application, candidate_id: 0 },
+  }
+  const backend = await apiPost<{ id: number } | Record<string, unknown>>('/applications/with-candidate', body)
+  const id = typeof backend === 'object' && backend !== null && 'id' in backend ? String((backend as { id: number }).id) : null
+  if (id != null) {
+    return getApplication(id)
+  }
+  // If backend returns full application in 201 body, map it
+  if (typeof backend === 'object' && backend !== null && 'candidate_id' in backend) {
+    return mapApplication(backend as unknown as Parameters<typeof mapApplication>[0])
+  }
+  throw new Error('Unexpected response from create application with candidate')
 }
 
 export async function updateApplication(id: string, updates: Partial<Application>): Promise<Application> {

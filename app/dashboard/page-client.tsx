@@ -6,7 +6,7 @@ import PipelineFlow from '@/components/dashboard/PipelineFlow'
 import CandidateList from '@/components/dashboard/CandidateList'
 import JoinedAgeStats from '@/components/dashboard/JoinedAgeStats'
 import AddApplicationModal from '@/components/candidates/AddApplicationModal'
-import { getDashboardStats, getPipelineFlow, getApplications, getRecruiters, createApplication } from '@/lib/data'
+import { getDashboardStats, getPipelineFlow, getApplications, getRecruiters, createApplicationWithCandidate } from '@/lib/data'
 import { getCurrentUser, getCurrentRecruiter } from '@/lib/auth-helper'
 import { computePipelineFlowFromApplications, computeDashboardStatsFromApplications } from '@/lib/utils'
 import type { DashboardStats, PipelineFlow as PipelineFlowType, Application, Recruiter } from '@/types/database'
@@ -63,8 +63,14 @@ export default function DashboardPageClient() {
     }
   }, [showAddModal, recruiters.length])
 
-  async function handleAddApplication(applicationData: any) {
-    await createApplication(applicationData)
+  async function handleAddApplication(payload: any) {
+    await createApplicationWithCandidate({
+      candidate: payload.candidate,
+      application: {
+        ...payload.application,
+        job_role_id: Number(payload.application.job_role_id),
+      },
+    })
     setShowAddModal(false)
     await loadData()
   }
