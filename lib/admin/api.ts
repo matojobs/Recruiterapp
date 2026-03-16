@@ -17,6 +17,12 @@ import type {
   ApplicationsListResponse,
   AdminJobApplication,
   SettingItem,
+  RecruiterPerformanceDODResponse,
+  RecruiterPerformanceMTDResponse,
+  RecruiterPerformanceIndividualResponse,
+  RecruiterPerformanceCompanyWiseResponse,
+  RecruiterPerformanceNegativeFunnelResponse,
+  RecruiterPerformanceInterviewStatusResponse,
 } from './types'
 
 const DEFAULT_API_URL = process.env.VERCEL ? 'https://api.jobsmato.com/api' : 'http://localhost:5000/api'
@@ -424,4 +430,66 @@ export async function exportActivityLogs(params?: Record<string, string | number
     responseType: 'blob',
   })
   return res.data
+}
+
+// —— Recruiter Performance (see docs/ADMIN_RECRUITER_PERFORMANCE_APIS.md) ——
+const RECRUITER_PERF_BASE = '/recruiter-performance'
+
+export async function getRecruiterPerformanceDOD(params?: { date?: string }): Promise<RecruiterPerformanceDODResponse | null> {
+  try {
+    const { data } = await getApi().get<RecruiterPerformanceDODResponse>(`${RECRUITER_PERF_BASE}/dod`, { params })
+    return data
+  } catch {
+    return null
+  }
+}
+
+export async function getRecruiterPerformanceMTD(params?: { month?: string }): Promise<RecruiterPerformanceMTDResponse | null> {
+  try {
+    const { data } = await getApi().get<RecruiterPerformanceMTDResponse>(`${RECRUITER_PERF_BASE}/mtd`, { params })
+    return data
+  } catch {
+    return null
+  }
+}
+
+export async function getRecruiterPerformanceIndividual(params: {
+  recruiter_id: string
+  period?: 'dod' | 'mtd'
+  date?: string
+  month?: string
+}): Promise<RecruiterPerformanceIndividualResponse | null> {
+  try {
+    const { data } = await getApi().get<RecruiterPerformanceIndividualResponse>(`${RECRUITER_PERF_BASE}/individual`, { params })
+    return data
+  } catch {
+    return null
+  }
+}
+
+export async function getRecruiterPerformanceCompanyWise(params?: { month?: string }): Promise<RecruiterPerformanceCompanyWiseResponse | null> {
+  try {
+    const { data } = await getApi().get<RecruiterPerformanceCompanyWiseResponse>(`${RECRUITER_PERF_BASE}/company-wise`, { params })
+    return data
+  } catch {
+    return null
+  }
+}
+
+export async function getRecruiterPerformanceNegativeFunnel(params?: { date?: string; month?: string }): Promise<RecruiterPerformanceNegativeFunnelResponse | null> {
+  try {
+    const { data } = await getApi().get<RecruiterPerformanceNegativeFunnelResponse>(`${RECRUITER_PERF_BASE}/negative-funnel/not-interested-remarks`, { params })
+    return data
+  } catch {
+    return null
+  }
+}
+
+export async function getRecruiterPerformanceInterviewStatusCompany(params?: { date?: string }): Promise<RecruiterPerformanceInterviewStatusResponse | null> {
+  try {
+    const { data } = await getApi().get<RecruiterPerformanceInterviewStatusResponse>(`${RECRUITER_PERF_BASE}/interview-status-company-wise`, { params })
+    return data
+  } catch {
+    return null
+  }
 }

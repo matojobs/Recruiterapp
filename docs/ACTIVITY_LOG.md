@@ -19,6 +19,29 @@ Each entry should include:
 
 ## Entries
 
+### 2026-03-18 — `fix` — Admin white screen: store permissions guard + error boundary
+
+- **Summary:** Fixed admin panel crashing with "Application error: a client-side exception" (white screen). Root cause: corrupted or non-array `admin_permissions` in localStorage made `hasPermission` call `.includes()` on non-array and throw.
+- **Details:**
+  - **lib/admin/store.ts:** (1) `hydrate()` always sets `permissions` to an array (Array.isArray(parsed) ? parsed : []). (2) `hasPermission()` returns false if `permissions` is not an array. (3) `setAuth` and `setPermissions` normalize input to an array before storing. (4) Safe defaults for adminName.
+  - **app/admin/recruiter-performance/page.tsx:** NegativeFunnelTable guard for null/undefined data; jobRoles built with safe filter so no undefined keys.
+  - **app/admin/error.tsx:** New error boundary for admin routes; shows "Something went wrong" with Try again, Dashboard, and Login links instead of full white screen.
+
+### 2026-03-18 — `fix` — Admin Recruiter Performance: defensive tables so DOD/MTD never throw on undefined
+
+- **Summary:** Fixed "Cannot read properties of undefined (reading 'assigned')" on admin Recruiter Performance page. Tables now guard against missing/weird API shape and never read from undefined.
+- **Details:**
+  - **app/admin/recruiter-performance/page.tsx:** (1) DODTable, MTDTable, CompanyWiseTable, InterviewStatusTable: early return "No data" when `!data || typeof data !== 'object`. (2) All row arrays filtered to objects only and bodyRows/rows re-filtered with `.filter((r): r is Record<string, unknown> => r != null && typeof r === 'object')` so no undefined in .map. (3) getCell(row, k) accepts null/undefined row and returns ''; getTotalVal(k) reads from total with fallback 0 so total[k] never throws. (4) Optional chaining on row (row?.recruiter_id, row?.company_name) in keys and classNames. (5) Total row cells use getTotalVal(k) instead of inline total[k]. Backend may send only a "Total" row in `rows` with no separate `total` or `date`; tables now handle that and show zeros.
+  - **Note:** "A listener indicated an asynchronous response..." in console is from a browser extension (e.g. Chrome extension message channel), not app code.
+
+### 2026-03-16 — `docs` — Backend implementation status (recruiter-performance + applications list)
+
+- **Summary:** Backend implemented admin recruiter-performance (7 endpoints) and aligned recruiter applications list with required paginated shape and sorting. Requirements doc and activity log updated to record status.
+- **Details:**
+  - **Backend (implemented):** (1) GET `/api/recruiter/applications` now returns `{ applications, total, page, limit, total_pages }` with optional `sort_by` (created_at \| updated_at \| call_date \| assigned_date \| candidate_name) and `sort_order` (asc \| desc). (2) New admin module: GET `/api/admin/recruiter-performance/dod`, `/mtd`, `/individual`, `/company-wise`, `/client-report`, `/negative-funnel/not-interested-remarks`, `/interview-status-company-wise` — all read from sourcing.applications; auth: admin JWT + view_analytics. (3) Recruiter auth, master data, applications CRUD, with-candidate, dashboard stats/pipeline/today-progress, and filters already matched requirements.
+  - **docs/BACKEND_REQUIREMENTS.md:** Added §6 Implementation status (implemented items + optional next steps); renumbered Reference index to §7; version 1.1, last updated 2026-03-16.
+  - **Frontend:** Admin Recruiter Performance page (`/admin/recruiter-performance`) and recruiter applications list already call these endpoints; with backend deployed, DOD/MTD/Individual/Company-wise/Negative Funnel/Interview Status tabs will show live data.
+
 ### 2025-02-18 — `docs` — Admin dashboard & analytics APIs
 
 - **Summary:** Single reference for admin dashboard stats and analytics endpoints under `/api/admin/dashboard/*` with response shapes and how the React admin dashboard should use them.

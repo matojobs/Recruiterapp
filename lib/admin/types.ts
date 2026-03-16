@@ -197,3 +197,120 @@ export type Permission =
   | 'manage_settings'
   | 'view_logs'
   | 'export_data'
+  | 'view_recruiter_performance'
+
+// —— Recruiter Performance (see docs/ADMIN_RECRUITER_PERFORMANCE_APIS.md) ——
+
+export interface RecruiterPerformanceRowDOD {
+  recruiter_id: string
+  recruiter_name: string
+  assigned: number
+  attempt: number
+  connected: number
+  interested: number
+  not_relevant: number
+  not_interested: number
+  interview_sched: number
+  sched_next_day: number
+  today_selection: number
+  rejected: number
+  today_joining: number
+  interview_done: number
+  interview_pending: number
+}
+
+export interface RecruiterPerformanceDODResponse {
+  date: string
+  rows: RecruiterPerformanceRowDOD[]
+  total: Omit<RecruiterPerformanceRowDOD, 'recruiter_id' | 'recruiter_name'>
+}
+
+export interface RecruiterPerformanceRowMTD {
+  recruiter_id: string
+  recruiter_name: string
+  assigned: number
+  attempt: number
+  connected: number
+  interested: number
+  interview_sched: number
+  sched_next_day: number
+  selection: number
+  total_joining: number
+  yet_to_join: number
+  backout: number
+  hold: number
+}
+
+export interface RecruiterPerformanceMTDResponse {
+  month: string
+  rows: RecruiterPerformanceRowMTD[]
+  total: Omit<RecruiterPerformanceRowMTD, 'recruiter_id' | 'recruiter_name'>
+}
+
+export interface RecruiterPerformanceIndividualResponse extends RecruiterPerformanceRowMTD {
+  period: 'dod' | 'mtd'
+  month?: string
+  date?: string
+}
+
+export interface CompanyWiseRow {
+  company_id: string
+  company_name: string
+  current_openings: number
+  total_screened: number
+  interview_scheduled: number
+  interview_done: number
+  interview_pending: number
+  rejected: number
+  selected: number
+  joined: number
+  hold: number
+  yet_to_join: number
+  backout: number
+}
+
+export interface RecruiterPerformanceCompanyWiseResponse {
+  rows: CompanyWiseRow[]
+  total: Omit<CompanyWiseRow, 'company_id' | 'company_name'>
+}
+
+export interface NegativeFunnelRemarkRow {
+  job_role_id: string
+  job_role_name: string
+  count: number
+  /** Used in totals_by_job_role */
+  total?: number
+}
+
+export interface NegativeFunnelRemark {
+  remark: string
+  by_job_role: NegativeFunnelRemarkRow[]
+  total: number
+}
+
+export interface RecruiterPerformanceNegativeFunnelResponse {
+  date?: string
+  month?: string
+  remarks: NegativeFunnelRemark[]
+  totals_by_job_role: NegativeFunnelRemarkRow[]
+  grand_total: number
+}
+
+export interface InterviewStatusCompanyRow {
+  company_id: string
+  company_name: string
+  int_sched: number
+  int_done: number
+  inter_pending: number
+  selected: number
+  joined: number
+  on_hold: number
+  yet_to_join: number
+  backout: number
+}
+
+export interface RecruiterPerformanceInterviewStatusResponse {
+  date: string
+  rows: InterviewStatusCompanyRow[]
+  total: Omit<InterviewStatusCompanyRow, 'company_id' | 'company_name'>
+}

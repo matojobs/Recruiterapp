@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 
 const items: { name: string; href: string; permission?: string; icon: string }[] = [
   { name: 'Dashboard', href: '/admin/dashboard', permission: 'view_dashboard', icon: 'D' },
+  { name: 'Recruiter Performance', href: '/admin/recruiter-performance', icon: 'R' },
   { name: 'Users', href: '/admin/users', permission: 'view_users', icon: 'U' },
   { name: 'Companies', href: '/admin/companies', permission: 'view_companies', icon: 'C' },
   { name: 'Jobs', href: '/admin/jobs', permission: 'view_jobs', icon: 'J' },

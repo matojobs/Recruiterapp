@@ -23,23 +23,26 @@ export const useAdminStore = create<AdminState>((set, get) => ({
   adminName: null,
 
   setAuth: (token, permissions, adminName) => {
+    const list = Array.isArray(permissions) ? permissions : []
     if (typeof window !== 'undefined') {
       localStorage.setItem(ADMIN_TOKEN_KEY, token)
-      localStorage.setItem(ADMIN_USER_KEY, adminName)
-      localStorage.setItem('admin_permissions', JSON.stringify(permissions))
+      localStorage.setItem(ADMIN_USER_KEY, adminName ?? '')
+      localStorage.setItem('admin_permissions', JSON.stringify(list))
     }
-    set({ accessToken: token, permissions, adminName })
+    set({ accessToken: token, permissions: list, adminName: adminName ?? null })
   },
 
   setPermissions: (permissions) => {
+    const list = Array.isArray(permissions) ? permissions : []
     if (typeof window !== 'undefined') {
-      localStorage.setItem('admin_permissions', JSON.stringify(permissions))
+      localStorage.setItem('admin_permissions', JSON.stringify(list))
     }
-    set({ permissions })
+    set({ permissions: list })
   },
 
   hasPermission: (permission) => {
     const { permissions } = get()
+    if (!Array.isArray(permissions)) return false
     return permissions.includes(permission)
   },
 
@@ -56,12 +59,16 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     if (typeof window === 'undefined') return
     const token = localStorage.getItem(ADMIN_TOKEN_KEY)
     const name = localStorage.getItem(ADMIN_USER_KEY)
+    let permissions: string[] = []
     try {
       const raw = localStorage.getItem('admin_permissions')
-      const permissions = raw ? JSON.parse(raw) : []
-      set({ accessToken: token, permissions, adminName: name })
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        permissions = Array.isArray(parsed) ? parsed : []
+      }
     } catch {
-      set({ accessToken: token, permissions: [], adminName: name })
+      permissions = []
     }
+    set({ accessToken: token, permissions, adminName: name })
   },
 }))
