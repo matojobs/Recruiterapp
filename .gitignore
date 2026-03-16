@@ -28,6 +28,9 @@ yarn-error.log*
 .env*.local
 .env
 
+# repo-specific GitHub credentials (matojobs for this repo only)
+.git-credentials-matojobs
+
 # vercel
 .vercel
 

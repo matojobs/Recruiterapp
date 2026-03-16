@@ -55,7 +55,7 @@ function ReportBarChart({
   valueLabel,
   maxBars = 12,
 }: {
-  data: Record<string, unknown>[]
+  data: object[]
   nameKey: string
   valueKey: string
   valueLabel: string
@@ -91,7 +91,7 @@ function ReportBarChart({
   )
 }
 
-// Table with sort, search, sticky header
+// Table with sort, search, sticky header (accepts API row types; normalizes internally)
 function SafeTable({
   title,
   rows,
@@ -104,10 +104,10 @@ function SafeTable({
   numericColumnKeys,
 }: {
   title: string
-  rows: Record<string, unknown>[]
+  rows: object[]
   columnKeys: string[]
   columnLabels: string[]
-  totalRow?: Record<string, unknown> | null
+  totalRow?: object | null
   highlightTotalRow?: boolean
   searchPlaceholder?: string
   searchColumnKey?: string
@@ -117,7 +117,10 @@ function SafeTable({
   const [sortKey, setSortKey] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
-  const safeRows = Array.isArray(rows) ? rows.filter((r): r is Record<string, unknown> => r != null && typeof r === 'object') : []
+  const safeRows = useMemo(
+    () => (Array.isArray(rows) ? rows.filter((r): r is Record<string, unknown> => r != null && typeof r === 'object') : []),
+    [rows]
+  )
   const safeLabels = Array.isArray(columnLabels) ? columnLabels : columnKeys
   const nameKey = searchColumnKey ?? columnKeys[0] ?? ''
   const numericKeys = useMemo(() => new Set(numericColumnKeys ?? columnKeys.slice(1)), [numericColumnKeys, columnKeys])
@@ -266,12 +269,14 @@ function SearchableRecruiterDropdown({
     return () => document.removeEventListener('mousedown', onOutside)
   }, [open])
 
+  const listboxId = 'recruiter-dropdown-listbox'
   return (
     <div ref={containerRef} className="relative min-w-[220px]">
       <div
         role="combobox"
         aria-expanded={open}
         aria-haspopup="listbox"
+        aria-controls={listboxId}
         className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
         onClick={() => !disabled && setOpen((o) => !o)}
       >
@@ -291,7 +296,7 @@ function SearchableRecruiterDropdown({
             className="w-full border-b border-gray-200 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
             autoFocus
           />
-          <ul role="listbox" className="py-1">
+          <ul id={listboxId} role="listbox" className="py-1">
             {filtered.length === 0 && (
               <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No recruiters found</li>
             )}
@@ -335,6 +340,8 @@ export default function AdminRecruiterPerformancePage() {
   useEffect(() => {
     if (!dodDate) setDodDate(new Date().toISOString().slice(0, 10))
     if (!mtdMonth) setMtdMonth(new Date().toISOString().slice(0, 7))
+    // Intentionally run once on mount to set initial date/month
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
