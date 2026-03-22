@@ -57,11 +57,14 @@ export default function DashboardPageClient() {
         callDone: appsData.filter(a => a.call_date != null).length,
         connected: appsData.filter(a => a.call_status === 'Connected').length,
         interested: appsData.filter(a => a.interested_status === 'Yes').length,
+        callBackLater: appsData.filter(a => a.interested_status === 'Call Back Later').length,
         notInterested: appsData.filter(a => a.interested_status === 'No').length,
         interviewScheduled: appsData.filter(a => a.interview_scheduled === true).length,
-        interviewDone: appsData.filter(a => a.interview_status === 'Not Attended' || a.interview_status === 'Rejected').length,
+        interviewDone: appsData.filter(a => a.interview_status === 'Done' || a.interview_status === 'Not Attended' || a.interview_status === 'Rejected').length,
         selected: appsData.filter(a => a.selection_status === 'Selected').length,
+        notSelected: appsData.filter(a => a.selection_status === 'Not Selected').length,
         joined: appsData.filter(a => a.joining_status === 'Joined').length,
+        notJoined: appsData.filter(a => a.joining_status === 'Not Joined').length,
         followupsDue: 0,
       })
     } catch (error) {

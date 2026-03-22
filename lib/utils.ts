@@ -76,11 +76,14 @@ export function computePipelineFlowFromApplications(applications: Application[])
     callDone: applications.filter((app) => app.call_date != null).length,
     connected: applications.filter((app) => app.call_status === 'Connected').length,
     interested: applications.filter((app) => app.interested_status === 'Yes').length,
+    callBackLater: applications.filter((app) => app.interested_status === 'Call Back Later').length,
     notInterested: applications.filter((app) => app.interested_status === 'No').length,
     interviewScheduled: applications.filter((app) => app.interview_scheduled).length,
-    interviewDone: applications.filter((app) => app.interview_status === 'Done').length,
+    interviewDone: applications.filter((app) => app.interview_status === 'Done' || app.interview_status === 'Not Attended' || app.interview_status === 'Rejected').length,
     selected: applications.filter((app) => app.selection_status === 'Selected').length,
+    notSelected: applications.filter((app) => app.selection_status === 'Not Selected').length,
     joined: applications.filter((app) => app.joining_status === 'Joined').length,
+    notJoined: applications.filter((app) => app.joining_status === 'Not Joined').length,
     followupsDue: 0,
   }
 }

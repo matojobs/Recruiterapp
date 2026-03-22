@@ -8,15 +8,18 @@ interface PipelineFlowProps {
 }
 
 const stages = [
-  { key: 'sourced' as const, label: 'Sourced', color: 'bg-slate-500', dot: 'bg-slate-500' },
-  { key: 'callDone' as const, label: 'Call Done', color: 'bg-blue-500', dot: 'bg-blue-500' },
-  { key: 'connected' as const, label: 'Connected', color: 'bg-cyan-500', dot: 'bg-cyan-500' },
-  { key: 'interested' as const, label: 'Interested', color: 'bg-emerald-500', dot: 'bg-emerald-500' },
-  { key: 'notInterested' as const, label: 'Not Interested', color: 'bg-red-400', dot: 'bg-red-400' },
-  { key: 'interviewScheduled' as const, label: 'Interview Scheduled', color: 'bg-amber-500', dot: 'bg-amber-500' },
-  { key: 'interviewDone' as const, label: 'Interview Done', color: 'bg-orange-500', dot: 'bg-orange-500' },
-  { key: 'selected' as const, label: 'Selected', color: 'bg-violet-600', dot: 'bg-violet-600' },
-  { key: 'joined' as const, label: 'Joined', color: 'bg-pink-500', dot: 'bg-pink-500' },
+  { key: 'sourced' as const,           label: 'Sourced',             color: 'bg-slate-500',   dot: 'bg-slate-500' },
+  { key: 'callDone' as const,          label: 'Call Done',           color: 'bg-blue-500',    dot: 'bg-blue-500' },
+  { key: 'connected' as const,         label: 'Connected',           color: 'bg-cyan-500',    dot: 'bg-cyan-500' },
+  { key: 'interested' as const,        label: 'Interested',          color: 'bg-emerald-500', dot: 'bg-emerald-500' },
+  { key: 'callBackLater' as const,     label: 'Call Back Later',     color: 'bg-yellow-400',  dot: 'bg-yellow-400' },
+  { key: 'notInterested' as const,     label: 'Not Interested',      color: 'bg-red-400',     dot: 'bg-red-400' },
+  { key: 'interviewScheduled' as const,label: 'Interview Scheduled', color: 'bg-amber-500',   dot: 'bg-amber-500' },
+  { key: 'interviewDone' as const,     label: 'Interview Done',      color: 'bg-orange-500',  dot: 'bg-orange-500' },
+  { key: 'selected' as const,          label: 'Selected',            color: 'bg-violet-600',  dot: 'bg-violet-600' },
+  { key: 'notSelected' as const,       label: 'Not Selected',        color: 'bg-rose-500',    dot: 'bg-rose-500' },
+  { key: 'joined' as const,            label: 'Joined',              color: 'bg-pink-500',    dot: 'bg-pink-500' },
+  { key: 'notJoined' as const,         label: 'Not Joined',          color: 'bg-gray-400',    dot: 'bg-gray-400' },
 ]
 
 export default function PipelineFlow({ flow }: PipelineFlowProps) {

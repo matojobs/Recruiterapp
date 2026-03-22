@@ -89,11 +89,14 @@ export interface PipelineFlow {
   callDone: number;
   connected: number;
   interested: number;
+  callBackLater: number;
   notInterested: number;
   interviewScheduled: number;
   interviewDone: number;
   selected: number;
+  notSelected: number;
   joined: number;
+  notJoined: number;
   followupsDue: number;
 }
 
@@ -103,11 +106,14 @@ export const EMPTY_PIPELINE_FLOW: PipelineFlow = {
   callDone: 0,
   connected: 0,
   interested: 0,
+  callBackLater: 0,
   notInterested: 0,
   interviewScheduled: 0,
   interviewDone: 0,
   selected: 0,
+  notSelected: 0,
   joined: 0,
+  notJoined: 0,
   followupsDue: 0,
 }
 
