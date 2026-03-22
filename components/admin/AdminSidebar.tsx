@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAdminStore } from '@/lib/admin/store'
@@ -132,18 +133,19 @@ export function AdminSidebar({ collapsed, onToggle }: { collapsed: boolean; onTo
       <div className="flex h-14 items-center justify-between border-b border-gray-100 px-3">
         {!collapsed && (
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-indigo-600 flex items-center justify-center">
-              <span className="text-white text-xs font-bold">JS</span>
-            </div>
+            <Image src="/logo.svg" alt="Jobsmato" width={28} height={28} priority />
             <span className="text-sm font-bold text-gray-800">Admin</span>
           </div>
+        )}
+        {collapsed && (
+          <Image src="/logo.svg" alt="Jobsmato" width={28} height={28} className="mx-auto" priority />
         )}
         <button
           type="button"
           onClick={onToggle}
           className={cn(
             'rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors',
-            collapsed && 'mx-auto'
+            collapsed && 'hidden'
           )}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
