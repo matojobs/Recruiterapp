@@ -81,6 +81,7 @@ export function computePipelineFlowFromApplications(applications: Application[])
     interviewDone: applications.filter((app) => app.interview_status === 'Done').length,
     selected: applications.filter((app) => app.selection_status === 'Selected').length,
     joined: applications.filter((app) => app.joining_status === 'Joined').length,
+    followupsDue: 0,
   }
 }
 

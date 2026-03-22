@@ -312,6 +312,7 @@ export async function getPipelineFlow(filters?: {
     interviewScheduled: interviewScheduled || 0,
     interviewDone: interviewDone || 0,
     selected: selected || 0,
+    followupsDue: 0,
     joined: joined || 0,
   }
 }

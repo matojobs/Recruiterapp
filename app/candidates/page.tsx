@@ -3,14 +3,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { getApplicationsPage, getRecruiters, getCompanies, getJobRoles, getRecruiterTodayProgress, updateApplication } from '@/lib/data'
 import { getCurrentUser } from '@/lib/auth-helper'
-import type { Application, ApplicationFilters, ApplicationPage, Recruiter, Company, JobRole, PipelineFlow } from '@/types/database'
+import type { Application, ApplicationFilters, Recruiter, Company, JobRole, PipelineFlow } from '@/types/database'
 import { EMPTY_PIPELINE_FLOW } from '@/types/database'
 import { calculateJoinedAge, formatJoinedAge } from '@/lib/utils'
 import ApplicationsTable from '@/components/candidates/ApplicationsTable'
 import Filters from '@/components/candidates/Filters'
 import FlowTracking from '@/components/candidates/FlowTracking'
 import AddApplicationModal from '@/components/candidates/AddApplicationModal'
-import Button from '@/components/ui/Button'
 import * as XLSX from 'xlsx'
 
 export default function CandidatesPage() {
@@ -38,13 +37,11 @@ export default function CandidatesPage() {
       const user = await getCurrentUser()
       const recruiterId = user?.recruiter_id ? String(user.recruiter_id) : undefined
 
-      // All filters + server-side search go to the API; recruiter_id scopes to current user
-      const searchTerm = searchQuery.trim() || undefined
       const [pageResult, flowData] = await Promise.all([
         getApplicationsPage({
           ...filters,
           recruiter_id: recruiterId,
-          search: searchTerm,
+          search: searchQuery.trim() || undefined,
           page,
           limit,
         }),
@@ -66,10 +63,7 @@ export default function CandidatesPage() {
     loadApplications()
   }, [loadApplications])
 
-  // Reset to first page when filters or search change
-  useEffect(() => {
-    setPage(1)
-  }, [filters, searchQuery])
+  useEffect(() => { setPage(1) }, [filters, searchQuery])
 
   async function loadData() {
     try {
@@ -88,21 +82,18 @@ export default function CandidatesPage() {
 
   async function handleUpdate(id: string, updates: Partial<Application>) {
     try {
-      const { updateApplication } = await import('@/lib/data')
       await updateApplication(id, updates)
-      // Reload applications and flow immediately
       await loadApplications()
     } catch (error) {
       console.error('Error updating application:', error)
       alert('Failed to update candidate status. Please try again.')
-      throw error // Re-throw so the table can handle it
+      throw error
     }
   }
 
   async function handleAddApplication(payload: any) {
     try {
       const { createApplicationWithCandidate } = await import('@/lib/data')
-
       await createApplicationWithCandidate({
         candidate: payload.candidate,
         application: {
@@ -110,9 +101,7 @@ export default function CandidatesPage() {
           job_role_id: Number(payload.application.job_role_id),
         },
       })
-
       await loadApplications()
-      // Flow will update automatically via useEffect
     } catch (error) {
       console.error('Error creating application with candidate:', error)
       throw error
@@ -138,7 +127,7 @@ export default function CandidatesPage() {
       'Selection Status': app.selection_status || '',
       'Joining Status': app.joining_status || '',
       'Joining Date': app.joining_date || '',
-      'Joined Age': app.joining_status === 'Joined' && app.joining_date 
+      'Joined Age': app.joining_status === 'Joined' && app.joining_date
         ? formatJoinedAge(calculateJoinedAge(app.joining_date))
         : '',
       'Followup Date': app.followup_date || '',
@@ -148,19 +137,79 @@ export default function CandidatesPage() {
     const ws = XLSX.utils.json_to_sheet(exportData)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Applications')
-    XLSX.writeFile(wb, `applications_${new Date().toISOString().split('T')[0]}.xlsx`)
-  }
-
-  if (loading && applications.length === 0) {
-    return <div className="text-center py-8">Loading...</div>
+    XLSX.writeFile(wb, `candidates_${new Date().toISOString().split('T')[0]}.xlsx`)
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Candidates</h1>
-        <Button onClick={() => setShowAddModal(true)}>+ Add Candidate</Button>
+    <div className="space-y-0">
+      {/* Page header */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Candidates</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage and track all your sourcing candidates</p>
+        </div>
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Candidate
+        </button>
       </div>
+
+      {/* Today's progress — compact pills, only visible when there's data */}
+      <FlowTracking flow={flow} />
+
+      {/* Unified search + filter toolbar */}
+      <Filters
+        companies={companies}
+        jobRoles={jobRoles}
+        onFilterChange={setFilters}
+        onSearchChange={setSearchQuery}
+        onExport={handleExport}
+        total={total}
+        loading={loading}
+      />
+
+      {/* Table (with loading skeleton) */}
+      {loading && applications.length === 0 ? (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-100">
+                <tr>
+                  {['', 'Name', 'Phone', 'Company', 'Role', 'Call Status', 'Interested', 'Selection', 'Joining', 'Date'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wide">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {[...Array(8)].map((_, i) => (
+                  <tr key={i} className="animate-pulse border-b border-gray-50">
+                    {[...Array(10)].map((_, j) => (
+                      <td key={j} className="px-4 py-3">
+                        <div className={`h-4 bg-gray-100 rounded ${j === 1 ? 'w-32' : j === 0 ? 'w-12' : 'w-20'}`} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <ApplicationsTable
+          applications={applications}
+          page={page}
+          limit={limit}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={(nextLimit) => { setLimit(nextLimit); setPage(1) }}
+          onUpdate={handleUpdate}
+        />
+      )}
 
       <AddApplicationModal
         isOpen={showAddModal}
@@ -168,56 +217,6 @@ export default function CandidatesPage() {
         onSave={handleAddApplication}
         recruiters={recruiters}
         companies={companies}
-      />
-
-      <FlowTracking flow={flow} />
-
-      {/* Search Bar */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex items-center space-x-4">
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Search candidates by name, phone, email, job role, company, or portal..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-        {searchQuery && (
-          <p className="text-sm text-gray-500 mt-2">
-            Found {total} candidate{total !== 1 ? 's' : ''} matching &quot;{searchQuery}&quot;
-          </p>
-        )}
-      </div>
-
-      <ApplicationsTable
-        applications={applications}
-        page={page}
-        limit={limit}
-        total={total}
-        onPageChange={setPage}
-        onPageSizeChange={(nextLimit) => {
-          setLimit(nextLimit)
-          setPage(1)
-        }}
-        onUpdate={handleUpdate}
-      />
-
-      <Filters
-        companies={companies}
-        jobRoles={jobRoles}
-        onFilterChange={setFilters}
-        onExport={handleExport}
       />
     </div>
   )

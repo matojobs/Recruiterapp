@@ -1,161 +1,274 @@
 'use client'
 
-import { useState } from 'react'
-import Button from '@/components/ui/Button'
-import Select from '@/components/ui/Select'
-import Input from '@/components/ui/Input'
+import { useState, useMemo } from 'react'
 import type { Company, JobRole } from '@/types/database'
 import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
+
+interface FiltersState {
+  search: string
+  company_id: string
+  job_role_id: string
+  call_status: string
+  interested_status: string
+  interview_scheduled: string
+  interview_status: string
+  selection_status: string
+  joining_status: string
+  date_from: string
+  date_to: string
+}
+
+const EMPTY: FiltersState = {
+  search: '',
+  company_id: '',
+  job_role_id: '',
+  call_status: '',
+  interested_status: '',
+  interview_scheduled: '',
+  interview_status: '',
+  selection_status: '',
+  joining_status: '',
+  date_from: '',
+  date_to: '',
+}
 
 interface FiltersProps {
   companies: Company[]
   jobRoles: JobRole[]
-  onFilterChange: (filters: any) => void
+  onFilterChange: (filters: Omit<FiltersState, 'search'>) => void
+  onSearchChange: (search: string) => void
   onExport: () => void
+  total: number
+  loading: boolean
 }
 
-export default function Filters({ companies, jobRoles, onFilterChange, onExport }: FiltersProps) {
-  const [filters, setFilters] = useState({
-    company_id: '',
-    job_role_id: '',
-    portal: '',
-    call_status: '',
-    interested_status: '',
-    interview_scheduled: '',
-    interview_status: '',
-    selection_status: '',
-    joining_status: '',
-    date_from: '',
-    date_to: '',
-  })
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+    </svg>
+  )
+}
 
-  function handleFilterChange(field: string, value: string) {
-    const newFilters = { ...filters, [field]: value }
-    setFilters(newFilters)
-    onFilterChange(newFilters)
-  }
+function FilterIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+    </svg>
+  )
+}
 
-  function handleReset() {
-    const emptyFilters = {
-      company_id: '',
-      job_role_id: '',
-      portal: '',
-      call_status: '',
-      interested_status: '',
-      interview_scheduled: '',
-      interview_status: '',
-      selection_status: '',
-      joining_status: '',
-      date_from: '',
-      date_to: '',
+function XIcon() {
+  return (
+    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
+function ExportIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+  )
+}
+
+export default function Filters({ companies, jobRoles, onFilterChange, onSearchChange, onExport, total, loading }: FiltersProps) {
+  const [filters, setFilters] = useState<FiltersState>(EMPTY)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+
+  function update(field: keyof FiltersState, value: string) {
+    const next = { ...filters, [field]: value }
+    setFilters(next)
+    if (field === 'search') {
+      onSearchChange(value)
+    } else {
+      const { search: _s, ...rest } = next
+      onFilterChange(rest)
     }
-    setFilters(emptyFilters)
-    onFilterChange(emptyFilters)
   }
+
+  function reset() {
+    setFilters(EMPTY)
+    onSearchChange('')
+    onFilterChange({ ...EMPTY, search: undefined } as any)
+  }
+
+  const activeCount = useMemo(() => {
+    const { search: _s, ...rest } = filters
+    return Object.values(rest).filter(Boolean).length
+  }, [filters])
+
+  const hasAny = activeCount > 0 || filters.search !== ''
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
-        <div className="flex space-x-2">
-          <Button variant="outline" size="sm" onClick={handleReset}>
-            Reset
-          </Button>
-          <Button variant="primary" size="sm" onClick={onExport}>
-            Export Excel
-          </Button>
+    <div className="bg-white rounded-xl border border-gray-100 shadow-sm mb-4">
+      {/* Primary toolbar */}
+      <div className="flex items-center gap-2 p-3 flex-wrap">
+        {/* Search */}
+        <div className="flex-1 min-w-52 relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search by name, phone, company…"
+            value={filters.search}
+            onChange={e => update('search', e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+          />
+          {filters.search && (
+            <button onClick={() => update('search', '')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <XIcon />
+            </button>
+          )}
+        </div>
+
+        {/* Company */}
+        <select
+          value={filters.company_id}
+          onChange={e => update('company_id', e.target.value)}
+          className={`px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.company_id ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-medium' : 'border-gray-200 text-gray-700'}`}
+        >
+          <option value="">All Companies</option>
+          {companies.map(c => <option key={c.id} value={c.id}>{c.company_name}</option>)}
+        </select>
+
+        {/* Job Role */}
+        <select
+          value={filters.job_role_id}
+          onChange={e => update('job_role_id', e.target.value)}
+          className={`px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.job_role_id ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-medium' : 'border-gray-200 text-gray-700'}`}
+        >
+          <option value="">All Roles</option>
+          {jobRoles.map(j => <option key={j.id} value={j.id}>{j.job_role}</option>)}
+        </select>
+
+        {/* Call Status */}
+        <select
+          value={filters.call_status}
+          onChange={e => update('call_status', e.target.value)}
+          className={`px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.call_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-medium' : 'border-gray-200 text-gray-700'}`}
+        >
+          <option value="">All Call Status</option>
+          {CALL_STATUS_SELECT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+
+        {/* More filters toggle */}
+        <button
+          onClick={() => setShowAdvanced(v => !v)}
+          className={`flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg transition-colors ${showAdvanced || activeCount > 0 ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+        >
+          <FilterIcon />
+          <span>More</span>
+          {activeCount > 0 && (
+            <span className="ml-0.5 bg-indigo-600 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">{activeCount}</span>
+          )}
+          <ChevronIcon open={showAdvanced} />
+        </button>
+
+        <div className="flex items-center gap-2 ml-auto">
+          {hasAny && (
+            <button onClick={reset} className="flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-lg transition-colors">
+              <XIcon />
+              Clear
+            </button>
+          )}
+          <button onClick={onExport} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors">
+            <ExportIcon />
+            Export
+          </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Select
-          label="Company"
-          value={filters.company_id}
-          onChange={(e) => handleFilterChange('company_id', e.target.value)}
-          options={companies.map((c) => ({ value: c.id, label: c.company_name }))}
-        />
-        <Select
-          label="Job Role"
-          value={filters.job_role_id}
-          onChange={(e) => handleFilterChange('job_role_id', e.target.value)}
-          options={jobRoles.map((j) => ({ value: j.id, label: j.job_role }))}
-        />
-        <Input
-          label="Portal"
-          value={filters.portal}
-          onChange={(e) => handleFilterChange('portal', e.target.value)}
-          placeholder="Search portal..."
-        />
-        <Select
-          label="Call Status"
-          value={filters.call_status}
-          onChange={(e) => handleFilterChange('call_status', e.target.value)}
-          options={[{ value: '', label: 'All' }, ...CALL_STATUS_SELECT_OPTIONS]}
-        />
-        <Select
-          label="Interested Status"
-          value={filters.interested_status}
-          onChange={(e) => handleFilterChange('interested_status', e.target.value)}
-          options={[
-            { value: 'Yes', label: 'Yes' },
-            { value: 'No', label: 'No' },
-            { value: 'Call Back Later', label: 'Call Back Later' },
-          ]}
-        />
-        <Select
-          label="Interview Scheduled"
-          value={filters.interview_scheduled}
-          onChange={(e) => handleFilterChange('interview_scheduled', e.target.value)}
-          options={[
-            { value: '', label: 'All' },
-            { value: 'Yes', label: 'Yes' },
-            { value: 'No', label: 'No' },
-          ]}
-        />
-        <Select
-          label="Interview Status"
-          value={filters.interview_status}
-          onChange={(e) => handleFilterChange('interview_status', e.target.value)}
-          options={[
-            { value: '', label: 'All' },
-            { value: 'Scheduled', label: 'Scheduled' },
-            { value: 'Done', label: 'Done' },
-            { value: 'Not Attended', label: 'Not Attended' },
-            { value: 'Rejected', label: 'Rejected' },
-          ]}
-        />
-        <Select
-          label="Selection Status"
-          value={filters.selection_status}
-          onChange={(e) => handleFilterChange('selection_status', e.target.value)}
-          options={[
-            { value: 'Selected', label: 'Selected' },
-            { value: 'Not Selected', label: 'Not Selected' },
-            { value: 'Pending', label: 'Pending' },
-          ]}
-        />
-        <Select
-          label="Joining Status"
-          value={filters.joining_status}
-          onChange={(e) => handleFilterChange('joining_status', e.target.value)}
-          options={[
-            { value: 'Joined', label: 'Joined' },
-            { value: 'Not Joined', label: 'Not Joined' },
-            { value: 'Pending', label: 'Pending' },
-          ]}
-        />
-        <Input
-          label="Date From"
-          type="date"
-          value={filters.date_from}
-          onChange={(e) => handleFilterChange('date_from', e.target.value)}
-        />
-        <Input
-          label="Date To"
-          type="date"
-          value={filters.date_to}
-          onChange={(e) => handleFilterChange('date_to', e.target.value)}
-        />
-      </div>
+
+      {/* Advanced filters panel */}
+      {showAdvanced && (
+        <div className="border-t border-gray-100 px-3 py-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <select
+            value={filters.interested_status}
+            onChange={e => update('interested_status', e.target.value)}
+            className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.interested_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
+          >
+            <option value="">Interested: All</option>
+            <option value="Yes">Interested</option>
+            <option value="No">Not Interested</option>
+            <option value="Call Back Later">Call Back Later</option>
+          </select>
+
+          <select
+            value={filters.interview_scheduled}
+            onChange={e => update('interview_scheduled', e.target.value)}
+            className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.interview_scheduled ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
+          >
+            <option value="">Interview: All</option>
+            <option value="Yes">Scheduled</option>
+            <option value="No">Not Scheduled</option>
+          </select>
+
+          <select
+            value={filters.interview_status}
+            onChange={e => update('interview_status', e.target.value)}
+            className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.interview_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
+          >
+            <option value="">Interview Outcome: All</option>
+            <option value="Scheduled">Scheduled</option>
+            <option value="Done">Done</option>
+            <option value="Not Attended">Not Attended</option>
+            <option value="Rejected">Rejected</option>
+          </select>
+
+          <select
+            value={filters.selection_status}
+            onChange={e => update('selection_status', e.target.value)}
+            className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.selection_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
+          >
+            <option value="">Selection: All</option>
+            <option value="Selected">Selected</option>
+            <option value="Not Selected">Not Selected</option>
+            <option value="Pending">Pending</option>
+          </select>
+
+          <select
+            value={filters.joining_status}
+            onChange={e => update('joining_status', e.target.value)}
+            className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.joining_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
+          >
+            <option value="">Joining: All</option>
+            <option value="Joined">Joined</option>
+            <option value="Not Joined">Not Joined</option>
+            <option value="Pending">Pending</option>
+            <option value="Backed Out">Backed Out</option>
+          </select>
+
+          <div className="flex gap-1.5 col-span-1 sm:col-span-1">
+            <input
+              type="date"
+              value={filters.date_from}
+              onChange={e => update('date_from', e.target.value)}
+              title="From date"
+              className={`w-full px-2 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.date_from ? 'border-indigo-400' : 'border-gray-200'}`}
+            />
+            <input
+              type="date"
+              value={filters.date_to}
+              onChange={e => update('date_to', e.target.value)}
+              title="To date"
+              className={`w-full px-2 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.date_to ? 'border-indigo-400' : 'border-gray-200'}`}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Result count strip */}
+      {!loading && (
+        <div className="border-t border-gray-50 px-3 py-1.5 flex items-center gap-2">
+          <span className="text-xs text-gray-400">{total.toLocaleString()} candidate{total !== 1 ? 's' : ''}</span>
+          {hasAny && (
+            <span className="text-xs text-indigo-600 font-medium">· filtered</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

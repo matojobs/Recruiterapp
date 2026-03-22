@@ -94,6 +94,7 @@ export interface PipelineFlow {
   interviewDone: number;
   selected: number;
   joined: number;
+  followupsDue: number;
 }
 
 /** Default empty pipeline flow; use for initial state. */
@@ -107,6 +108,7 @@ export const EMPTY_PIPELINE_FLOW: PipelineFlow = {
   interviewDone: 0,
   selected: 0,
   joined: 0,
+  followupsDue: 0,
 }
 
 /** Filters for listing applications (API query params and local filter). */

@@ -1,21 +1,42 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import type { Application } from '@/types/database'
 import { formatDate, calculateJoinedAge, formatJoinedAge } from '@/lib/utils'
 import EditCandidateModal from './EditCandidateModal'
-import Button from '@/components/ui/Button'
-import Select from '@/components/ui/Select'
 
-function EditIcon({ className }: { className?: string }) {
+function EditIcon() {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5" aria-hidden>
       <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
     </svg>
   )
 }
 
-interface ApplicationsTableProps {
+const CALL_COLORS: Record<string, string> = {
+  Connected: 'bg-emerald-100 text-emerald-700',
+  RNR: 'bg-yellow-100 text-yellow-700',
+  Busy: 'bg-orange-100 text-orange-700',
+  'Wrong Number': 'bg-red-100 text-red-600',
+  'Switched Off': 'bg-gray-100 text-gray-600',
+  'Incoming Off': 'bg-gray-100 text-gray-600',
+  'Call Back': 'bg-blue-100 text-blue-700',
+  Invalid: 'bg-red-100 text-red-600',
+  'Out of network': 'bg-gray-100 text-gray-500',
+}
+
+function Badge({ value, type }: { value: string | null | undefined; type?: string }) {
+  if (!value) return <span className="text-gray-300">—</span>
+  let cls = 'bg-gray-100 text-gray-600'
+  if (type === 'call') cls = CALL_COLORS[value] ?? 'bg-gray-100 text-gray-600'
+  else if (type === 'interested') cls = value === 'Yes' ? 'bg-emerald-100 text-emerald-700' : value === 'No' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-700'
+  else if (type === 'interview') cls = value === 'Done' ? 'bg-emerald-100 text-emerald-700' : value === 'Scheduled' ? 'bg-blue-100 text-blue-700' : value === 'Not Attended' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'
+  else if (type === 'selection') cls = value === 'Selected' ? 'bg-violet-100 text-violet-700' : value === 'Not Selected' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'
+  else if (type === 'joining') cls = value === 'Joined' ? 'bg-pink-100 text-pink-700' : value === 'Not Joined' ? 'bg-red-100 text-red-600' : value === 'Backed Out' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${cls}`}>{value}</span>
+}
+
+interface Props {
   applications: Application[]
   page: number
   limit: number
@@ -25,417 +46,163 @@ interface ApplicationsTableProps {
   onUpdate: (id: string, updates: Partial<Application>) => Promise<void>
 }
 
-export default function ApplicationsTable({
-  applications,
-  page,
-  limit,
-  total,
-  onPageChange,
-  onPageSizeChange,
-  onUpdate,
-}: ApplicationsTableProps) {
-  const [editingApplication, setEditingApplication] = useState<Application | null>(null)
-  const [showEditModal, setShowEditModal] = useState(false)
+const COLS = [
+  { label: 'Edit', freeze: true, width: 'min-w-[70px]', left: 'left-0' },
+  { label: 'Name', freeze: true, width: 'min-w-[150px]', left: 'left-[70px]' },
+  { label: 'Phone', freeze: true, width: 'min-w-[120px]', left: 'left-[220px]' },
+  { label: 'Company', width: 'min-w-[130px]' },
+  { label: 'Role', width: 'min-w-[130px]' },
+  { label: 'Call Status', width: 'min-w-[110px]' },
+  { label: 'Interested', width: 'min-w-[90px]' },
+  { label: 'Portal', width: 'min-w-[90px]' },
+  { label: 'Assigned', width: 'min-w-[95px]' },
+  { label: 'Call Date', width: 'min-w-[90px]' },
+  { label: 'Interview', width: 'min-w-[90px]' },
+  { label: 'IV Date', width: 'min-w-[85px]' },
+  { label: 'IV Outcome', width: 'min-w-[100px]' },
+  { label: 'Selection', width: 'min-w-[95px]' },
+  { label: 'Joining', width: 'min-w-[95px]' },
+  { label: 'Join Date', width: 'min-w-[90px]' },
+  { label: 'Joined Age', width: 'min-w-[85px]' },
+  { label: 'Backout', width: 'min-w-[90px]' },
+  { label: 'Followup', width: 'min-w-[90px]' },
+  { label: 'Age', width: 'min-w-[70px]' },
+  { label: 'Notes', width: 'min-w-[120px]' },
+]
+
+export default function ApplicationsTable({ applications, page, limit, total, onPageChange, onPageSizeChange, onUpdate }: Props) {
+  const [editingApp, setEditingApp] = useState<Application | null>(null)
 
   const totalPages = Math.max(1, Math.ceil((total || 0) / (limit || 1)))
   const startIndex = total === 0 ? 0 : (page - 1) * limit + 1
   const endIndex = total === 0 ? 0 : Math.min(page * limit, total)
-  const paginatedApplications = useMemo(() => applications, [applications])
-
-  function handleEdit(app: Application) {
-    setEditingApplication(app)
-    setShowEditModal(true)
-  }
 
   async function handleSave(id: string, updates: Partial<Application>) {
     await onUpdate(id, updates)
-    setShowEditModal(false)
-    setEditingApplication(null)
-  }
-
-  function getStatusColor(status: string | null | undefined, type: 'call' | 'interested' | 'interview' | 'selection' | 'joining') {
-    if (!status) return 'bg-gray-100 text-gray-700'
-    
-    if (type === 'call') {
-      if (status === 'Connected') return 'bg-green-100 text-green-800'
-      if (status === 'Busy' || status === 'RNR') return 'bg-yellow-100 text-yellow-800'
-      return 'bg-red-100 text-red-800'
-    }
-    
-    if (type === 'interested') {
-      if (status === 'Yes') return 'bg-green-100 text-green-800'
-      if (status === 'Call Back Later') return 'bg-yellow-100 text-yellow-800'
-      return 'bg-red-100 text-red-800'
-    }
-    
-    if (type === 'interview' || type === 'selection' || type === 'joining') {
-      if (status.includes('Selected') || status.includes('Joined') || status === 'Done') return 'bg-green-100 text-green-800'
-      if (status === 'Backed Out') return 'bg-red-200 text-red-900'
-      if (status.includes('Pending') || status === 'Scheduled') return 'bg-yellow-100 text-yellow-800'
-      return 'bg-red-100 text-red-800'
-    }
-    
-    return 'bg-gray-100 text-gray-700'
+    setEditingApp(null)
   }
 
   return (
     <>
-      {/* Pagination Controls - Top */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center space-x-4">
-          <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Show:</label>
-          <Select
-            value={String(limit)}
-            onChange={(e) => onPageSizeChange(parseInt(e.target.value))}
-            options={[
-              { value: '10', label: '10' },
-              { value: '20', label: '20' },
-              { value: '50', label: '50' },
-              { value: '100', label: '100' },
-            ]}
-            className="w-36"
-          />
-          <span className="text-sm text-gray-600 whitespace-nowrap">
-            rows per page
-          </span>
-        </div>
-        {total > 0 && (
-          <div className="text-sm text-gray-600 whitespace-nowrap">
-            Showing <span className="font-medium">{startIndex}</span> to <span className="font-medium">{endIndex}</span> of <span className="font-medium">{total}</span> candidate{total !== 1 ? 's' : ''}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        {/* Table toolbar: rows-per-page + count + pagination all in one row */}
+        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-100 bg-gray-50/60">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span>Show</span>
+            <select
+              value={String(limit)}
+              onChange={e => onPageSizeChange(parseInt(e.target.value))}
+              className="px-2 py-1 border border-gray-200 rounded-md text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <span>per page</span>
           </div>
-        )}
-      </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          {total > 0 && (
+            <span className="text-xs text-gray-400">
+              {startIndex}–{endIndex} of <span className="font-semibold text-gray-600">{total}</span>
+            </span>
+          )}
+
+          <div className="ml-auto flex items-center gap-1">
+            <button onClick={() => onPageChange(1)} disabled={page === 1}
+              className="px-2 py-1 text-xs border border-gray-200 rounded-md disabled:opacity-30 hover:bg-gray-100 transition-colors">«</button>
+            <button onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page === 1}
+              className="px-2.5 py-1 text-xs border border-gray-200 rounded-md disabled:opacity-30 hover:bg-gray-100 transition-colors">‹</button>
+            <span className="px-3 py-1 text-xs text-gray-600 font-medium">{page} / {totalPages}</span>
+            <button onClick={() => onPageChange(Math.min(totalPages, page + 1))} disabled={page === totalPages}
+              className="px-2.5 py-1 text-xs border border-gray-200 rounded-md disabled:opacity-30 hover:bg-gray-100 transition-colors">›</button>
+            <button onClick={() => onPageChange(totalPages)} disabled={page === totalPages}
+              className="px-2 py-1 text-xs border border-gray-200 rounded-md disabled:opacity-30 hover:bg-gray-100 transition-colors">»</button>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0">
-              <tr>
-                {/* Edit - Frozen Column 1 */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-20 border-r border-gray-200 min-w-[80px]">
-                  <span className="inline-flex items-center gap-1">
-                    <EditIcon className="w-4 h-4" />
-                    Edit
-                  </span>
-                </th>
-                {/* Name - Frozen Column 2 */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-[80px] bg-gray-50 z-20 border-r border-gray-200 min-w-[150px]">
-                  Name
-                </th>
-                {/* Number - Frozen Column 3 */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-[230px] bg-gray-50 z-20 border-r border-gray-200 min-w-[120px]">
-                  Number
-                </th>
-                {/* Email - Frozen Column 4 */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-[350px] bg-gray-50 z-20 border-r border-gray-200 min-w-[220px]">
-                  Email
-                </th>
-                {/* Designation */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Designation
-                </th>
-                {/* Location */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Location
-                </th>
-                {/* Call Status */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Call Status
-                </th>
-                {/* Portal */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Portal
-                </th>
-                {/* Company */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Company
-                </th>
-                {/* Assigned Date */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Assigned Date
-                </th>
-                {/* Candidate Age */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Candidate Age
-                </th>
-                {/* Recruiter */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Recruiter
-                </th>
-                {/* Call Date */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Call Date
-                </th>
-                {/* Interested */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Interested
-                </th>
-                {/* Interview Scheduled */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Interview Scheduled
-                </th>
-                {/* Interview Date */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Interview Date
-                </th>
-                {/* Interview Status */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Interview Status
-                </th>
-                {/* Selection Status */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Selection Status
-                </th>
-                {/* Joining Status */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Joining Status
-                </th>
-                {/* Joining Date */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Joining Date
-                </th>
-                {/* Joined Age */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Joined Age
-                </th>
-                {/* Backout Date */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Backout Date
-                </th>
-                {/* Backout Reason */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Backout Reason
-                </th>
-                {/* Followup Date */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Followup Date
-                </th>
-                {/* Notes */}
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Notes
-                </th>
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                {COLS.map(col => (
+                  <th
+                    key={col.label}
+                    className={`px-3 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap ${col.width} ${col.freeze ? `sticky ${col.left} bg-gray-50 z-20 border-r border-gray-200` : ''}`}
+                  >
+                    {col.label === 'Edit' ? (
+                      <span className="flex items-center gap-1"><EditIcon /> Edit</span>
+                    ) : col.label}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-50">
               {applications.length === 0 ? (
                 <tr>
-                  <td colSpan={24} className="px-6 py-8 text-center text-gray-500">
-                    No candidates found. Add your first candidate.
-                  </td>
-                </tr>
-              ) : paginatedApplications.length === 0 ? (
-                <tr>
-                  <td colSpan={24} className="px-6 py-8 text-center text-gray-500">
-                    No candidates on this page.
+                  <td colSpan={COLS.length} className="px-6 py-16 text-center">
+                    <div className="flex flex-col items-center gap-2 text-gray-400">
+                      <svg className="w-10 h-10 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <p className="text-sm font-medium">No candidates found</p>
+                      <p className="text-xs">Try adjusting your filters or add a new candidate</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
-                paginatedApplications.map((app) => (
-                  <tr key={app.id} className="hover:bg-gray-50">
-                    {/* Edit - Frozen Column 1 */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm sticky left-0 bg-white z-10 border-r border-gray-200 min-w-[80px]">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(app)}
+                applications.map((app, i) => (
+                  <tr key={app.id} className={`hover:bg-indigo-50/30 transition-colors group ${i % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'}`}>
+                    {/* Edit — frozen */}
+                    <td className={`px-3 py-2 sticky left-0 z-10 border-r border-gray-100 ${i % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'} group-hover:bg-indigo-50/30`}>
+                      <button
+                        onClick={() => setEditingApp(app)}
+                        className="flex items-center gap-1 px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 rounded-md transition-colors font-medium"
                         title="Edit candidate"
-                        className="inline-flex items-center gap-1.5"
                       >
-                        <EditIcon className="w-4 h-4 shrink-0" />
+                        <EditIcon />
                         Edit
-                      </Button>
+                      </button>
                     </td>
 
-                    {/* Name - Frozen Column 2 */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 font-medium sticky left-[80px] bg-white z-10 border-r border-gray-200 min-w-[150px]">
-                      {app.candidate?.candidate_name || '-'}
+                    {/* Name — frozen */}
+                    <td className={`px-3 py-2 sticky left-[70px] z-10 border-r border-gray-100 ${i % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'} group-hover:bg-indigo-50/30 font-medium text-gray-900 whitespace-nowrap`}>
+                      {app.candidate?.candidate_name || '—'}
                     </td>
 
-                    {/* Number - Frozen Column 3 */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 sticky left-[230px] bg-white z-10 border-r border-gray-200 min-w-[120px]">
-                      {app.candidate?.phone || '-'}
+                    {/* Phone — frozen */}
+                    <td className={`px-3 py-2 sticky left-[220px] z-10 border-r border-gray-100 ${i % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'} group-hover:bg-indigo-50/30 text-gray-600 whitespace-nowrap font-mono text-xs`}>
+                      {app.candidate?.phone || '—'}
                     </td>
 
-                    {/* Email - Frozen Column 4 */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700 sticky left-[350px] bg-white z-10 border-r border-gray-200 min-w-[220px]">
-                      {app.candidate?.email ? (
-                        <a
-                          href={`mailto:${app.candidate.email}`}
-                          className="text-blue-600 hover:text-blue-800 hover:underline truncate block max-w-[200px]"
-                          title={app.candidate.email}
-                        >
-                          {app.candidate.email}
-                        </a>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-
-                    {/* Designation */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                      {app.job_role?.job_role || '-'}
-                    </td>
-
-                    {/* Location */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                      {app.candidate?.location || '-'}
-                    </td>
-
-                    {/* Call Status */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm">
-                      {app.call_status ? (
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(app.call_status, 'call')}`}>
-                          {app.call_status}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-
-                    {/* Portal */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900">
-                      {app.portal || '-'}
-                    </td>
-
-                    {/* Company */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                      {(app.job_role as any)?.company?.company_name || '-'}
-                    </td>
-
-                    {/* Assigned Date */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                      {formatDate(app.assigned_date)}
-                    </td>
-
-                    {/* Candidate Age */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                      {app.candidate?.age ? (
-                        <span className="px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                          {app.candidate.age} years
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-
-                    {/* Recruiter */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                      {app.recruiter?.name || '-'}
-                    </td>
-
-                    {/* Call Date */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                      {formatDate(app.call_date)}
-                    </td>
-
-                    {/* Interested */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm">
-                      {app.interested_status ? (
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(app.interested_status, 'interested')}`}>
-                          {app.interested_status}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-
-                    {/* Interview Scheduled */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-center">
+                    <td className="px-3 py-2 whitespace-nowrap text-gray-700 text-xs">{(app.job_role as any)?.company?.company_name || '—'}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-gray-700 text-xs">{app.job_role?.job_role || '—'}</td>
+                    <td className="px-3 py-2 whitespace-nowrap"><Badge value={app.call_status} type="call" /></td>
+                    <td className="px-3 py-2 whitespace-nowrap"><Badge value={app.interested_status} type="interested" /></td>
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{app.portal || '—'}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{formatDate(app.assigned_date)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{formatDate(app.call_date)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-xs">
                       {app.interview_scheduled ? (
-                        <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                          Yes
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">No</span>
-                      )}
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">Yes</span>
+                      ) : <span className="text-gray-300">—</span>}
                     </td>
-
-                    {/* Interview Date */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                      {formatDate(app.interview_date)}
-                    </td>
-
-                    {/* Interview Status */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm">
-                      {app.interview_status ? (
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(app.interview_status, 'interview')}`}>
-                          {app.interview_status}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-
-                    {/* Selection Status */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm">
-                      {app.selection_status ? (
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(app.selection_status, 'selection')}`}>
-                          {app.selection_status}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-
-                    {/* Joining Status */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm">
-                      {app.joining_status ? (
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(app.joining_status, 'joining')}`}>
-                          {app.joining_status}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-
-                    {/* Joining Date */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                      {formatDate(app.joining_date)}
-                    </td>
-
-                    {/* Joined Age - Only show for joined candidates */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm">
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{formatDate(app.interview_date)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap"><Badge value={app.interview_status} type="interview" /></td>
+                    <td className="px-3 py-2 whitespace-nowrap"><Badge value={app.selection_status} type="selection" /></td>
+                    <td className="px-3 py-2 whitespace-nowrap"><Badge value={app.joining_status} type="joining" /></td>
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{formatDate(app.joining_date)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-xs">
                       {app.joining_status === 'Joined' && app.joining_date ? (
-                        <span className="px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
                           {formatJoinedAge(calculateJoinedAge(app.joining_date))}
                         </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
+                      ) : <span className="text-gray-300">—</span>}
                     </td>
-
-                    {/* Backout Date */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                      {app.backout_date ? (
-                        <span className="px-2 py-1 rounded text-xs font-medium bg-red-200 text-red-900">
-                          {formatDate(app.backout_date)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{formatDate(app.backout_date)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{formatDate(app.followup_date)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">
+                      {app.candidate?.age ? `${app.candidate.age}y` : '—'}
                     </td>
-
-                    {/* Backout Reason */}
-                    <td className="px-3 py-2 text-sm text-gray-700 max-w-xs">
-                      {app.backout_reason ? (
-                        <div className="truncate" title={app.backout_reason}>
-                          {app.backout_reason}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-
-                    {/* Followup Date */}
-                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                      {formatDate(app.followup_date)}
-                    </td>
-
-                    {/* Notes */}
-                    <td className="px-3 py-2 text-sm text-gray-700 max-w-xs">
-                      <div className="truncate" title={app.notes || ''}>
-                        {app.notes || '-'}
-                      </div>
+                    <td className="px-3 py-2 text-xs text-gray-500 max-w-[150px]">
+                      <div className="truncate" title={app.notes || ''}>{app.notes || '—'}</div>
                     </td>
                   </tr>
                 ))
@@ -443,61 +210,29 @@ export default function ApplicationsTable({
             </tbody>
           </table>
         </div>
+
+        {/* Bottom pagination */}
+        {total > 1 && (
+          <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-100 bg-gray-50/60">
+            <span className="text-xs text-gray-400">Page {page} of {totalPages}</span>
+            <div className="flex items-center gap-1">
+              <button onClick={() => onPageChange(1)} disabled={page === 1}
+                className="px-2 py-1 text-xs border border-gray-200 rounded-md disabled:opacity-30 hover:bg-gray-100 transition-colors">«</button>
+              <button onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page === 1}
+                className="px-2.5 py-1 text-xs border border-gray-200 rounded-md disabled:opacity-30 hover:bg-gray-100 transition-colors">‹ Prev</button>
+              <button onClick={() => onPageChange(Math.min(totalPages, page + 1))} disabled={page === totalPages}
+                className="px-2.5 py-1 text-xs border border-gray-200 rounded-md disabled:opacity-30 hover:bg-gray-100 transition-colors">Next ›</button>
+              <button onClick={() => onPageChange(totalPages)} disabled={page === totalPages}
+                className="px-2 py-1 text-xs border border-gray-200 rounded-md disabled:opacity-30 hover:bg-gray-100 transition-colors">»</button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Pagination Controls - Bottom */}
-      {total > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mt-4 flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            Page {page} of {totalPages}
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(1)}
-              disabled={page === 1}
-            >
-              First
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(Math.max(1, page - 1))}
-              disabled={page === 1}
-            >
-              Previous
-            </Button>
-            <span className="px-4 py-2 text-sm text-gray-700">
-              {page} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(Math.min(totalPages, page + 1))}
-              disabled={page === totalPages}
-            >
-              Next
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(totalPages)}
-              disabled={page === totalPages}
-            >
-              Last
-            </Button>
-          </div>
-        </div>
-      )}
-
       <EditCandidateModal
-        isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false)
-          setEditingApplication(null)
-        }}
-        application={editingApplication}
+        isOpen={!!editingApp}
+        onClose={() => setEditingApp(null)}
+        application={editingApp}
         onSave={handleSave}
       />
     </>

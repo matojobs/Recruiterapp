@@ -432,13 +432,58 @@ export async function exportActivityLogs(params?: Record<string, string | number
   return res.data
 }
 
+// —— Sourcing Candidates (recruiter portal data, admin view) ——
+export async function getAdminSourcingApplications(params?: {
+  page?: number
+  limit?: number
+  recruiter_id?: string
+  company_id?: string
+  call_status?: string
+  selection_status?: string
+  joining_status?: string
+  interview_status?: string
+  search?: string
+}): Promise<{
+  applications: unknown[]
+  total: number
+  page: number
+  limit: number
+  total_pages?: number
+} | null> {
+  try {
+    const { data } = await getApi().get('/sourcing/applications', { params })
+    if (data && typeof data === 'object') {
+      const apps = (data as any).applications ?? []
+      return {
+        applications: apps,
+        total: (data as any).total ?? apps.length,
+        page: (data as any).page ?? 1,
+        limit: (data as any).limit ?? apps.length,
+        total_pages: (data as any).total_pages,
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 // —— Recruiter Performance (see docs/ADMIN_RECRUITER_PERFORMANCE_APIS.md) ——
 const RECRUITER_PERF_BASE = '/recruiter-performance'
 
 export async function getRecruiterPerformanceDOD(params?: { date?: string }): Promise<RecruiterPerformanceDODResponse | null> {
   try {
-    const { data } = await getApi().get<RecruiterPerformanceDODResponse>(`${RECRUITER_PERF_BASE}/dod`, { params })
-    return data
+    const { data } = await getApi().get(`${RECRUITER_PERF_BASE}/dod`, { params })
+    if (!data || !Array.isArray(data.rows)) return null
+    // Backend appends Total as last row with recruiter_id=null — extract it
+    const totalIdx = (data.rows as any[]).findIndex((r: any) => r.recruiter_id == null || r.recruiter_name === 'Total')
+    const total = totalIdx >= 0 ? data.rows[totalIdx] : null
+    const rows = totalIdx >= 0 ? (data.rows as any[]).filter((_: any, i: number) => i !== totalIdx) : data.rows
+    return {
+      date: data.date ?? new Date().toISOString().split('T')[0],
+      rows,
+      total,
+    }
   } catch {
     return null
   }
@@ -446,8 +491,17 @@ export async function getRecruiterPerformanceDOD(params?: { date?: string }): Pr
 
 export async function getRecruiterPerformanceMTD(params?: { month?: string }): Promise<RecruiterPerformanceMTDResponse | null> {
   try {
-    const { data } = await getApi().get<RecruiterPerformanceMTDResponse>(`${RECRUITER_PERF_BASE}/mtd`, { params })
-    return data
+    const { data } = await getApi().get(`${RECRUITER_PERF_BASE}/mtd`, { params })
+    if (!data || !Array.isArray(data.rows)) return null
+    // Backend appends Total as last row with recruiter_id=null — extract it
+    const totalIdx = (data.rows as any[]).findIndex((r: any) => r.recruiter_id == null || r.recruiter_name === 'Total')
+    const total = totalIdx >= 0 ? data.rows[totalIdx] : null
+    const rows = totalIdx >= 0 ? (data.rows as any[]).filter((_: any, i: number) => i !== totalIdx) : data.rows
+    return {
+      month: data.month ?? new Date().toISOString().slice(0, 7),
+      rows,
+      total,
+    }
   } catch {
     return null
   }

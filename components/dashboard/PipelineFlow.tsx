@@ -7,64 +7,85 @@ interface PipelineFlowProps {
   flow: PipelineFlow
 }
 
-export default function PipelineFlow({ flow }: PipelineFlowProps) {
-  const stages = [
-    { label: 'Sourced', value: flow.sourced, color: 'bg-gray-400' },
-    { label: 'Call Done', value: flow.callDone, color: 'bg-blue-400' },
-    { label: 'Connected', value: flow.connected, color: 'bg-green-400' },
-    { label: 'Interested', value: flow.interested, color: 'bg-emerald-400' },
-    { label: 'Not Interested', value: flow.notInterested, color: 'bg-red-400' },
-    { label: 'Interview Scheduled', value: flow.interviewScheduled, color: 'bg-yellow-400' },
-    { label: 'Interview Done', value: flow.interviewDone, color: 'bg-orange-400' },
-    { label: 'Selected', value: flow.selected, color: 'bg-purple-400' },
-    { label: 'Joined', value: flow.joined, color: 'bg-pink-400' },
-  ]
+const stages = [
+  { key: 'sourced' as const, label: 'Sourced', color: 'bg-slate-500', dot: 'bg-slate-500' },
+  { key: 'callDone' as const, label: 'Call Done', color: 'bg-blue-500', dot: 'bg-blue-500' },
+  { key: 'connected' as const, label: 'Connected', color: 'bg-cyan-500', dot: 'bg-cyan-500' },
+  { key: 'interested' as const, label: 'Interested', color: 'bg-emerald-500', dot: 'bg-emerald-500' },
+  { key: 'notInterested' as const, label: 'Not Interested', color: 'bg-red-400', dot: 'bg-red-400' },
+  { key: 'interviewScheduled' as const, label: 'Interview Scheduled', color: 'bg-amber-500', dot: 'bg-amber-500' },
+  { key: 'interviewDone' as const, label: 'Interview Done', color: 'bg-orange-500', dot: 'bg-orange-500' },
+  { key: 'selected' as const, label: 'Selected', color: 'bg-violet-600', dot: 'bg-violet-600' },
+  { key: 'joined' as const, label: 'Joined', color: 'bg-pink-500', dot: 'bg-pink-500' },
+]
 
-  const maxValue = Math.max(...stages.map(s => s.value))
+export default function PipelineFlow({ flow }: PipelineFlowProps) {
+  const maxValue = Math.max(...stages.map(s => flow[s.key]), 1)
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-      <h3 className="text-lg font-semibold text-gray-900 mb-6">Pipeline Flow</h3>
-      <div className="space-y-4">
-        {stages.map((stage, index) => {
-          const percentage = maxValue > 0 ? (stage.value / maxValue) * 100 : 0
-          const conversionRate = index > 0 && stages[index - 1].value > 0
-            ? calculatePercentage(stage.value, stages[index - 1].value)
-            : null
-
-          return (
-            <div key={stage.label}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-3">
-                  <span className="text-sm font-medium text-gray-700 w-32">
-                    {stage.label}
-                  </span>
-                  <span className="text-sm font-bold text-gray-900">
-                    {stage.value}
-                  </span>
-                  {conversionRate !== null && (
-                    <span className="text-xs text-gray-500">
-                      ({conversionRate}% conversion)
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-6 overflow-hidden">
-                <div
-                  className={`${stage.color} h-full transition-all duration-300 flex items-center justify-end pr-2`}
-                  style={{ width: `${percentage}%` }}
-                >
-                  {stage.value > 0 && (
-                    <span className="text-xs font-medium text-white">
-                      {stage.value}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          )
-        })}
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-base font-semibold text-gray-900">Pipeline Flow</h3>
+        {flow.sourced > 0 && (
+          <span className="text-xs bg-pink-50 text-pink-700 font-semibold px-2.5 py-1 rounded-full">
+            {calculatePercentage(flow.joined, flow.sourced)}% overall joining rate
+          </span>
+        )}
       </div>
+
+      <div className="space-y-2.5">
+        {stages
+          .filter((stage, index) => index === 0 || flow[stage.key] > 0)
+          .map((stage, index, visible) => {
+            const value = flow[stage.key]
+            const prev = index > 0 ? flow[visible[index - 1].key] : null
+            const barWidth = maxValue > 0 ? Math.max((value / maxValue) * 100, value > 0 ? 3 : 0) : 0
+            const conversion = prev !== null && prev > 0 ? calculatePercentage(value, prev) : null
+
+            return (
+              <div key={stage.key} className="flex items-center gap-3">
+                {/* Label */}
+                <div className="flex items-center gap-2 w-40 flex-shrink-0">
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${stage.dot}`} />
+                  <span className="text-xs font-medium text-gray-600 truncate">{stage.label}</span>
+                </div>
+
+                {/* Bar */}
+                <div className="flex-1 h-7 bg-gray-100 rounded-lg overflow-hidden">
+                  <div
+                    className={`${stage.color} h-full rounded-lg flex items-center px-2.5 transition-all duration-500`}
+                    style={{ width: `${barWidth}%` }}
+                  >
+                    {value > 0 && (
+                      <span className="text-xs font-bold text-white whitespace-nowrap">{value}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Conversion rate */}
+                <div className="w-16 text-right flex-shrink-0">
+                  {conversion !== null ? (
+                    <span
+                      className={`text-xs font-semibold ${
+                        conversion >= 60 ? 'text-emerald-600' :
+                        conversion >= 35 ? 'text-amber-600' :
+                        'text-red-500'
+                      }`}
+                    >
+                      ↓ {conversion}%
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-400 font-medium">base</span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+      </div>
+
+      {flow.sourced === 0 && (
+        <p className="text-sm text-gray-400 text-center py-4">No pipeline data yet</p>
+      )}
     </div>
   )
 }
