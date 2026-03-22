@@ -432,6 +432,59 @@ export async function exportActivityLogs(params?: Record<string, string | number
   return res.data
 }
 
+// —— Sourcing Candidates (recruiter portal data, admin view) ——
+/**
+ * Fetch sourcing/recruiter applications for admin view.
+ * Calls /api/recruiter/applications with the admin JWT token.
+ * Requires backend to allow admin role on this route, or a dedicated
+ * /api/admin/sourcing/applications endpoint.
+ */
+export async function getAdminSourcingApplications(params?: {
+  page?: number
+  limit?: number
+  recruiter_id?: string
+  company_id?: string
+  call_status?: string
+  selection_status?: string
+  joining_status?: string
+  interview_status?: string
+  search?: string
+}): Promise<{
+  applications: unknown[]
+  total: number
+  page: number
+  limit: number
+  total_pages?: number
+} | null> {
+  try {
+    const token = useAdminStore.getState().accessToken
+    const baseURL =
+      typeof window !== 'undefined'
+        ? process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
+        : process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
+    const { data } = await axios.get(`${baseURL}/recruiter/applications`, {
+      params,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (Array.isArray(data)) {
+      return { applications: data, total: data.length, page: 1, limit: data.length }
+    }
+    if (data && typeof data === 'object') {
+      const apps = (data as any).applications ?? (data as any).data ?? (data as any).items ?? []
+      return {
+        applications: apps,
+        total: (data as any).total ?? apps.length,
+        page: (data as any).page ?? 1,
+        limit: (data as any).limit ?? apps.length,
+        total_pages: (data as any).total_pages,
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 // —— Recruiter Performance (see docs/ADMIN_RECRUITER_PERFORMANCE_APIS.md) ——
 const RECRUITER_PERF_BASE = '/recruiter-performance'
 

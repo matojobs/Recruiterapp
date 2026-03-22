@@ -339,22 +339,32 @@ export function mapDashboardStats(backend: BackendDashboardStats): DashboardStat
 }
 
 /**
- * Map backend pipeline stages array to frontend pipeline flow object
+ * Map backend pipeline stages array to frontend pipeline flow object.
+ *
+ * The backend /dashboard/pipeline returns call-status-based stage names:
+ *   "Not Called", "Busy", "RNR", "Connected", "Interested",
+ *   "Selected", "Joined", "Not Joined", "Backed Out", "Pending"
+ *
+ * "Sourced" = total of all stage counts (every application is in some stage).
+ * "Call Done" = everything that had a call attempt = total − "Not Called".
  */
 export function mapPipelineFlow(stages: BackendPipelineStage[]): PipelineFlow {
   const stageMap = new Map(stages.map(s => [s.stage.toLowerCase(), s.count]))
-  
-  // Map backend stage names to frontend keys
+
+  // Total across all stages = total sourced applications
+  const total = stages.reduce((sum, s) => sum + s.count, 0)
+  const notCalled = stageMap.get('not called') ?? 0
+
   return {
-    sourced: stageMap.get('new applications') || stageMap.get('sourced') || 0,
-    callDone: stageMap.get('contacted') || stageMap.get('call done') || 0,
+    sourced: stageMap.get('sourced') ?? stageMap.get('new applications') ?? total,
+    callDone: stageMap.get('call done') ?? stageMap.get('contacted') ?? (total > 0 ? total - notCalled : 0),
     connected: stageMap.get('connected') ?? 0,
-    interested: stageMap.get('interested') || 0,
-    notInterested: stageMap.get('not interested') || 0,
-    interviewScheduled: stageMap.get('interview scheduled') || 0,
+    interested: stageMap.get('interested') ?? 0,
+    notInterested: stageMap.get('not interested') ?? 0,
+    interviewScheduled: stageMap.get('interview scheduled') ?? 0,
     interviewDone: stageMap.get('interview done') ?? 0,
-    selected: stageMap.get('selected') || 0,
-    joined: stageMap.get('joined') || 0,
+    selected: stageMap.get('selected') ?? 0,
+    joined: stageMap.get('joined') ?? 0,
   }
 }
 

@@ -188,12 +188,13 @@ export default function EditCandidateModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Interview Status</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Interview Outcome</label>
                   <Select
                     value={formData.interview_status || ''}
                     onChange={(e) => setFormData({ ...formData, interview_status: e.target.value as any })}
                     options={[
-                      { value: 'Scheduled', label: 'Scheduled' },
+                      { value: '', label: 'Select outcome...' },
+                      { value: 'Scheduled', label: 'Scheduled (yet to happen)' },
                       { value: 'Done', label: 'Done' },
                       { value: 'Not Attended', label: 'Not Attended' },
                       { value: 'Rejected', label: 'Rejected' },

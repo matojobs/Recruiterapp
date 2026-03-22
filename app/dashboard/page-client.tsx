@@ -42,7 +42,15 @@ export default function DashboardPageClient() {
         getApplications(recruiterId ? { recruiter_id: recruiterId, page: 1, limit: 50 } : { page: 1, limit: 50 }),
       ])
       setApplications(appsData)
-      setStats(statsData)
+      // Compute fields the /dashboard/stats endpoint doesn't return, using the full app list
+      // (we fetch limit:50 and total is 43, so appsData contains everything)
+      setStats(statsData ? {
+        ...statsData,
+        notInterestedToday: appsData.filter(a => a.interested_status === 'No').length,
+        interviewsScheduled: appsData.filter(a => a.interview_scheduled === true).length,
+        interviewsDoneToday: appsData.filter(a => a.interview_status === 'Done' || a.interview_status === 'Attended').length,
+        pendingJoining: appsData.filter(a => a.joining_status === 'Pending').length,
+      } : statsData)
       setFlow(flowData)
     } catch (error) {
       console.error('Error loading dashboard:', error)

@@ -19,6 +19,19 @@ Each entry should include:
 
 ## Entries
 
+### 2026-03-21 — `fix` + `feature` + `ui` — Pipeline bug fix, Reports redesign, UI polish, Admin candidates page
+
+- **Summary:** Fixed sourced/callDone=0 pipeline bug; redesigned StatsCards and PipelineFlow; full Reports page rewrite with backend APIs + date filters + Recharts; new Admin Candidates page.
+- **Details:**
+  - **lib/api-mappers.ts:** `mapPipelineFlow` now derives `sourced` = sum of all stage counts and `callDone` = sourced − `Not Called` (backend returns status-based stages, not explicit sourced/call-done stages).
+  - **components/candidates/EditCandidateModal.tsx:** Interview Status renamed to "Interview Outcome", added blank default option, added `(yet to happen)` hint to "Scheduled" option.
+  - **components/dashboard/StatsCards.tsx:** Replaced emoji icons with SVG icons; left color-accent border cards; hover shadow.
+  - **components/dashboard/PipelineFlow.tsx:** Color-coded conversion rates per stage (green/amber/red); overall joining rate badge; empty state.
+  - **app/reports/page.tsx:** Full rewrite — uses `getPipelineFlow()` + `getDashboardStats()` backend APIs; date preset filter (All/Month/Week); Pipeline tab with Recharts BarChart + stage table; My Performance tab with conversion funnel + actionable insights; Company-wise tab with full funnel metrics; export buttons.
+  - **app/admin/candidates/page.tsx (new):** All sourcing candidates table with search, status filters, color-coded badges, pagination; graceful error if backend endpoint not yet available.
+  - **lib/admin/api.ts:** Added `getAdminSourcingApplications()` calling `/api/recruiter/applications` with admin JWT.
+  - **components/admin/AdminSidebar.tsx:** Added "All Candidates" nav item.
+
 ### 2026-03-18 — `fix` — Admin white screen: store permissions guard + error boundary
 
 - **Summary:** Fixed admin panel crashing with "Application error: a client-side exception" (white screen). Root cause: corrupted or non-array `admin_permissions` in localStorage made `hasPermission` call `.includes()` on non-array and throw.
