@@ -62,6 +62,7 @@ export default function DashboardPageClient() {
         interviewDone: appsData.filter(a => a.interview_status === 'Not Attended' || a.interview_status === 'Rejected').length,
         selected: appsData.filter(a => a.selection_status === 'Selected').length,
         joined: appsData.filter(a => a.joining_status === 'Joined').length,
+        followupsDue: 0,
       })
     } catch (error) {
       console.error('Error loading dashboard:', error)
