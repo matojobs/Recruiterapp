@@ -47,7 +47,7 @@ export default function DashboardPageClient() {
         ...statsData,
         notInterestedToday: appsData.filter(a => a.interested_status === 'No').length,
         interviewsScheduled: appsData.filter(a => a.interview_scheduled === true).length,
-        interviewsDoneToday: appsData.filter(a => a.interview_status === 'Done' || a.interview_status === 'Attended').length,
+        interviewsDoneToday: appsData.filter(a => a.interview_status === 'Not Attended' || a.interview_status === 'Rejected').length,
         pendingJoining: appsData.filter(a => a.joining_status === 'Pending').length,
       } : statsData)
       setFlow(flowData)
