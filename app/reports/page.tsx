@@ -33,20 +33,23 @@ function getDateRange(preset: DatePreset): { date_from?: string; date_to?: strin
 }
 
 const PIPELINE_STAGES = [
-  { key: 'sourced', label: 'Sourced', color: '#64748b' },
-  { key: 'callDone', label: 'Call Done', color: '#3b82f6' },
-  { key: 'connected', label: 'Connected', color: '#06b6d4' },
-  { key: 'interested', label: 'Interested', color: '#10b981' },
-  { key: 'callBackLater', label: 'Call Back Later', color: '#facc15' },
-  { key: 'notInterested', label: 'Not Interested', color: '#f87171' },
-  { key: 'interviewScheduled', label: 'Interview Scheduled', color: '#f59e0b' },
-  { key: 'interviewDone', label: 'Interview Done', color: '#f97316' },
-  { key: 'selected', label: 'Selected', color: '#8b5cf6' },
-  { key: 'notSelected', label: 'Not Selected', color: '#f43f5e' },
-  { key: 'joined', label: 'Joined', color: '#ec4899' },
-  { key: 'notJoined', label: 'Not Joined', color: '#9ca3af' },
-  { key: 'backedOut', label: 'Backed Out', color: '#ea580c' },
-  { key: 'pendingJoining', label: 'Pending Joining', color: '#818cf8' },
+  { key: 'sourced',                label: 'Sourced',                  color: '#64748b' },
+  { key: 'callDone',               label: 'Call Done',                color: '#3b82f6' },
+  { key: 'connected',              label: 'Connected',                color: '#06b6d4' },
+  { key: 'interestPending',        label: 'Interest Not Updated',     color: '#cbd5e1' },
+  { key: 'interested',             label: 'Interested',               color: '#10b981' },
+  { key: 'callBackLater',          label: 'Call Back Later',          color: '#facc15' },
+  { key: 'notInterested',          label: 'Not Interested',           color: '#f87171' },
+  { key: 'interviewScheduled',     label: 'Interview Scheduled',      color: '#f59e0b' },
+  { key: 'interviewResultPending', label: 'Interview Result Pending', color: '#cbd5e1' },
+  { key: 'interviewDone',          label: 'Interview Done',           color: '#f97316' },
+  { key: 'selectionPending',       label: 'Selection Pending',        color: '#cbd5e1' },
+  { key: 'selected',               label: 'Selected',                 color: '#8b5cf6' },
+  { key: 'notSelected',            label: 'Not Selected',             color: '#f43f5e' },
+  { key: 'joined',                 label: 'Joined',                   color: '#ec4899' },
+  { key: 'notJoined',              label: 'Not Joined',               color: '#9ca3af' },
+  { key: 'backedOut',              label: 'Backed Out',               color: '#ea580c' },
+  { key: 'pendingJoining',         label: 'Pending Joining',          color: '#818cf8' },
 ]
 
 const DATE_PRESETS: { label: string; value: DatePreset }[] = [

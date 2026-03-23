@@ -8,6 +8,19 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 
+const UNREACHABLE_STATUSES = ['RNR', 'Busy', 'Switched Off', 'Incoming Off', 'Call Back', 'Out of network']
+
+function addDays(n: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+
+function shouldAutoSetFollowup(current: string | null | undefined): boolean {
+  if (!current) return true
+  return current < new Date().toISOString().slice(0, 10)
+}
+
 interface EditCandidateModalProps {
   isOpen: boolean
   onClose: () => void
@@ -140,21 +153,41 @@ export default function EditCandidateModal({
               <label className="block text-sm font-medium text-gray-700 mb-1">Call Status</label>
               <Select
                 value={formData.call_status || ''}
-                onChange={(e) => setFormData({ ...formData, call_status: e.target.value as Application['call_status'] })}
+                onChange={(e) => {
+                  const newStatus = e.target.value as Application['call_status']
+                  const updates: Partial<Application> = { call_status: newStatus }
+                  if (newStatus && UNREACHABLE_STATUSES.includes(newStatus) && shouldAutoSetFollowup(formData.followup_date as string)) {
+                    updates.followup_date = addDays(1)
+                  }
+                  setFormData({ ...formData, ...updates })
+                }}
                 options={[{ value: '', label: 'Select...' }, ...CALL_STATUS_SELECT_OPTIONS]}
               />
+              {formData.call_status && UNREACHABLE_STATUSES.includes(formData.call_status) && formData.followup_date && (
+                <p className="text-xs text-amber-600 mt-1">Follow-up auto-set to {formatDate(formData.followup_date as string)}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Interested Status</label>
               <Select
                 value={formData.interested_status || ''}
-                onChange={(e) => setFormData({ ...formData, interested_status: e.target.value as any })}
+                onChange={(e) => {
+                  const newStatus = e.target.value as Application['interested_status']
+                  const updates: Partial<Application> = { interested_status: newStatus }
+                  if (newStatus === 'Call Back Later' && shouldAutoSetFollowup(formData.followup_date as string)) {
+                    updates.followup_date = addDays(2)
+                  }
+                  setFormData({ ...formData, ...updates })
+                }}
                 options={[
                   { value: 'Yes', label: 'Yes' },
                   { value: 'No', label: 'No' },
                   { value: 'Call Back Later', label: 'Call Back Later' },
                 ]}
               />
+              {formData.interested_status === 'Call Back Later' && formData.followup_date && (
+                <p className="text-xs text-amber-600 mt-1">Follow-up auto-set to {formatDate(formData.followup_date as string)}</p>
+              )}
             </div>
             {formData.interested_status === 'No' && (
               <div className="md:col-span-2">
