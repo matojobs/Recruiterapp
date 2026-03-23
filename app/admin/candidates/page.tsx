@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { getAdminSourcingApplications } from '@/lib/admin/api'
 import { CALL_STATUS_OPTIONS } from '@/lib/constants'
 
+// ── Types ────────────────────────────────────────────────────────────────────
 interface SourcingCandidate {
   id: string | number
   candidateName: string
@@ -19,9 +20,12 @@ interface SourcingCandidate {
   assignedDate: string | null
 }
 
-function StatusBadge({ value }: { value: string | null }) {
+// ── Badge helpers ─────────────────────────────────────────────────────────────
+function StatusBadge({ value, type }: { value: string | null; type: 'call' | 'interest' | 'interview' | 'selection' | 'joining' }) {
   if (!value) return <span className="text-gray-300 text-xs">—</span>
+
   const classes: Record<string, string> = {
+    // Call status
     Connected: 'bg-emerald-100 text-emerald-700',
     RNR: 'bg-yellow-100 text-yellow-700',
     Busy: 'bg-orange-100 text-orange-700',
@@ -31,22 +35,27 @@ function StatusBadge({ value }: { value: string | null }) {
     'Call Back': 'bg-blue-100 text-blue-700',
     Invalid: 'bg-red-100 text-red-600',
     'Out of network': 'bg-gray-100 text-gray-500',
+    // Interest
     Yes: 'bg-emerald-100 text-emerald-700',
     No: 'bg-red-100 text-red-600',
     'Call Back Later': 'bg-yellow-100 text-yellow-700',
+    // Interview
     Done: 'bg-emerald-100 text-emerald-700',
     Scheduled: 'bg-blue-100 text-blue-700',
     'Not Attended': 'bg-red-100 text-red-600',
     Rejected: 'bg-gray-100 text-gray-600',
+    // Selection
     Selected: 'bg-violet-100 text-violet-700',
     'Not Selected': 'bg-red-100 text-red-600',
     Pending: 'bg-yellow-100 text-yellow-700',
+    // Joining
     Joined: 'bg-pink-100 text-pink-700',
     'Not Joined': 'bg-red-100 text-red-600',
     'Backed Out': 'bg-orange-100 text-orange-700',
   }
+  const cls = classes[value] || 'bg-gray-100 text-gray-600'
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${classes[value] || 'bg-gray-100 text-gray-600'}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
       {value}
     </span>
   )
@@ -57,19 +66,34 @@ function mapRow(app: any): SourcingCandidate {
   const firstName = candidate.firstName ?? candidate.first_name ?? ''
   const lastName = candidate.lastName ?? candidate.last_name ?? ''
   const fullName = [firstName, lastName].filter(Boolean).join(' ')
-  const candidateName = candidate.candidate_name ?? (fullName || `Candidate #${app.candidate_id ?? app.id}`)
+  const candidateName =
+    candidate.candidate_name ?? (fullName || `Candidate #${app.candidate_id ?? app.id}`)
+
   const jobRole = app.job_role?.role_name ?? app.job_role?.job_role ?? app.jobRole?.title ?? '—'
-  const company = app.job_role?.company?.name ?? app.job_role?.company?.company_name ?? app.company?.name ?? '—'
+  const company =
+    app.job_role?.company?.name ??
+    app.job_role?.company?.company_name ??
+    app.company?.name ??
+    '—'
   const recruiter = app.recruiter?.name ?? app.recruiterName ?? '—'
+
   return {
-    id: app.id, candidateName, phone: candidate.phone ?? null, company, jobRole, recruiter,
-    callStatus: app.call_status ?? null, interestedStatus: app.interested_status ?? null,
-    interviewStatus: app.interview_status ?? null, selectionStatus: app.selection_status ?? null,
+    id: app.id,
+    candidateName,
+    phone: candidate.phone ?? null,
+    company,
+    jobRole,
+    recruiter,
+    callStatus: app.call_status ?? null,
+    interestedStatus: app.interested_status ?? null,
+    interviewStatus: app.interview_status ?? null,
+    selectionStatus: app.selection_status ?? null,
     joiningStatus: app.joining_status ?? null,
     assignedDate: app.assigned_date ?? app.created_at?.split('T')[0] ?? null,
   }
 }
 
+// ── Page ─────────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 25
 
 export default function AdminCandidatesPage() {
@@ -88,7 +112,8 @@ export default function AdminCandidatesPage() {
     setLoading(true)
     setError(null)
     const result = await getAdminSourcingApplications({
-      page, limit: PAGE_SIZE,
+      page,
+      limit: PAGE_SIZE,
       call_status: filterCall || undefined,
       selection_status: filterSelection || undefined,
       joining_status: filterJoining || undefined,
@@ -106,6 +131,8 @@ export default function AdminCandidatesPage() {
   }, [page, filterCall, filterSelection, filterJoining, search])
 
   useEffect(() => { loadData() }, [loadData])
+
+  // Reset to page 1 on filter change
   useEffect(() => { setPage(1) }, [filterCall, filterSelection, filterJoining, search])
 
   const stats = useMemo(() => ({
@@ -118,11 +145,13 @@ export default function AdminCandidatesPage() {
 
   return (
     <div className="space-y-5">
+      {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-gray-900">All Candidates</h1>
         <p className="text-sm text-gray-500 mt-0.5">All sourcing candidates across all recruiters</p>
       </div>
 
+      {/* Summary cards */}
       {!error && (
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {[
@@ -140,23 +169,40 @@ export default function AdminCandidatesPage() {
         </div>
       )}
 
+      {/* Filters */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-wrap gap-3">
-        <input type="text" placeholder="Search by name, phone..." value={search} onChange={e => setSearch(e.target.value)}
-          className="flex-1 min-w-48 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400" />
-        <select value={filterCall} onChange={e => setFilterCall(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-gray-700">
+        <input
+          type="text"
+          placeholder="Search by name, phone..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 min-w-48 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+        />
+        <select
+          value={filterCall}
+          onChange={e => setFilterCall(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-gray-700"
+        >
           <option value="">All Call Statuses</option>
-          {CALL_STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+          {CALL_STATUS_OPTIONS.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
         </select>
-        <select value={filterSelection} onChange={e => setFilterSelection(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-gray-700">
+        <select
+          value={filterSelection}
+          onChange={e => setFilterSelection(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-gray-700"
+        >
           <option value="">All Selection Statuses</option>
           <option value="Selected">Selected</option>
           <option value="Not Selected">Not Selected</option>
           <option value="Pending">Pending</option>
         </select>
-        <select value={filterJoining} onChange={e => setFilterJoining(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-gray-700">
+        <select
+          value={filterJoining}
+          onChange={e => setFilterJoining(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 text-gray-700"
+        >
           <option value="">All Joining Statuses</option>
           <option value="Joined">Joined</option>
           <option value="Not Joined">Not Joined</option>
@@ -164,24 +210,30 @@ export default function AdminCandidatesPage() {
           <option value="Backed Out">Backed Out</option>
         </select>
         {(filterCall || filterSelection || filterJoining || search) && (
-          <button onClick={() => { setSearch(''); setFilterCall(''); setFilterSelection(''); setFilterJoining('') }}
-            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">Clear</button>
+          <button
+            onClick={() => { setSearch(''); setFilterCall(''); setFilterSelection(''); setFilterJoining('') }}
+            className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50"
+          >
+            Clear
+          </button>
         )}
       </div>
 
+      {/* Error */}
       {error && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-800">
           <p className="font-semibold mb-1">Could not load sourcing candidates</p>
           <p className="text-amber-700">{error}</p>
           <p className="text-amber-600 mt-2 text-xs">
             To enable this page, the backend needs to allow admin access to{' '}
-            <code className="bg-amber-100 px-1 rounded">/api/recruiter/applications</code> or expose{' '}
-            <code className="bg-amber-100 px-1 rounded">/api/admin/sourcing/applications</code>.
+            <code className="bg-amber-100 px-1 rounded">/api/recruiter/applications</code> or expose a dedicated{' '}
+            <code className="bg-amber-100 px-1 rounded">/api/admin/sourcing/applications</code> endpoint.
           </p>
           <button onClick={loadData} className="mt-3 text-sm font-medium text-amber-800 underline">Retry</button>
         </div>
       )}
 
+      {/* Table */}
       {!error && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
@@ -189,7 +241,12 @@ export default function AdminCandidatesPage() {
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
                   {['Candidate', 'Phone', 'Company', 'Job Role', 'Recruiter', 'Call Status', 'Interested', 'Interview', 'Selected', 'Joining', 'Assigned'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                    <th
+                      key={h}
+                      className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap"
+                    >
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -197,11 +254,19 @@ export default function AdminCandidatesPage() {
                 {loading ? (
                   [...Array(8)].map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      {[...Array(11)].map((_, j) => <td key={j} className="px-4 py-3"><div className="h-4 bg-gray-100 rounded w-20" /></td>)}
+                      {[...Array(11)].map((_, j) => (
+                        <td key={j} className="px-4 py-3">
+                          <div className="h-4 bg-gray-100 rounded w-20" />
+                        </td>
+                      ))}
                     </tr>
                   ))
                 ) : rows.length === 0 ? (
-                  <tr><td colSpan={11} className="px-4 py-10 text-center text-sm text-gray-400">No candidates found</td></tr>
+                  <tr>
+                    <td colSpan={11} className="px-4 py-10 text-center text-sm text-gray-400">
+                      No candidates found
+                    </td>
+                  </tr>
                 ) : (
                   rows.map((row, i) => (
                     <tr key={row.id} className={`hover:bg-gray-50 transition-colors ${i % 2 === 1 ? 'bg-gray-50/40' : ''}`}>
@@ -210,26 +275,52 @@ export default function AdminCandidatesPage() {
                       <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{row.company}</td>
                       <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{row.jobRole}</td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{row.recruiter}</td>
-                      <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.callStatus} /></td>
-                      <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.interestedStatus} /></td>
-                      <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.interviewStatus} /></td>
-                      <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.selectionStatus} /></td>
-                      <td className="px-4 py-3 whitespace-nowrap"><StatusBadge value={row.joiningStatus} /></td>
-                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">{row.assignedDate ?? '—'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <StatusBadge value={row.callStatus} type="call" />
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <StatusBadge value={row.interestedStatus} type="interest" />
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <StatusBadge value={row.interviewStatus} type="interview" />
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <StatusBadge value={row.selectionStatus} type="selection" />
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <StatusBadge value={row.joiningStatus} type="joining" />
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
+                        {row.assignedDate ?? '—'}
+                      </td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
           {!loading && totalPages > 1 && (
             <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
-              <p className="text-xs text-gray-500">Page {page} of {totalPages} · {total} candidates total</p>
+              <p className="text-xs text-gray-500">
+                Page {page} of {totalPages} · {total} candidates total
+              </p>
               <div className="flex gap-2">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                  className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">Previous</button>
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                  className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50">Next</button>
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="px-3 py-1.5 text-xs font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+                >
+                  Next
+                </button>
               </div>
             </div>
           )}

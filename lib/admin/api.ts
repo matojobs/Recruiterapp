@@ -433,6 +433,12 @@ export async function exportActivityLogs(params?: Record<string, string | number
 }
 
 // —— Sourcing Candidates (recruiter portal data, admin view) ——
+/**
+ * Fetch sourcing/recruiter applications for admin view.
+ * Calls /api/recruiter/applications with the admin JWT token.
+ * Requires backend to allow admin role on this route, or a dedicated
+ * /api/admin/sourcing/applications endpoint.
+ */
 export async function getAdminSourcingApplications(params?: {
   page?: number
   limit?: number
@@ -451,9 +457,20 @@ export async function getAdminSourcingApplications(params?: {
   total_pages?: number
 } | null> {
   try {
-    const { data } = await getApi().get('/sourcing/applications', { params })
+    const token = useAdminStore.getState().accessToken
+    const baseURL =
+      typeof window !== 'undefined'
+        ? process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
+        : process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
+    const { data } = await axios.get(`${baseURL}/recruiter/applications`, {
+      params,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (Array.isArray(data)) {
+      return { applications: data, total: data.length, page: 1, limit: data.length }
+    }
     if (data && typeof data === 'object') {
-      const apps = (data as any).applications ?? []
+      const apps = (data as any).applications ?? (data as any).data ?? (data as any).items ?? []
       return {
         applications: apps,
         total: (data as any).total ?? apps.length,

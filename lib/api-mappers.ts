@@ -359,25 +359,10 @@ export function mapPipelineFlow(stages: BackendPipelineStage[]): PipelineFlow {
   const total = stages.reduce((sum, s) => sum + s.count, 0)
   const notCalled = stageMap.get('not called') ?? 0
 
-  const callDone = stageMap.get('call done') ?? stageMap.get('contacted') ?? (total > 0 ? total - notCalled : 0)
-
-  // "Connected" = call answered. Backend groups call attempts (RNR, Busy, etc.) separately.
-  // Subtract all "not answered" statuses to get answered count.
-  const notAnswered =
-    (stageMap.get('rnr') ?? 0) +
-    (stageMap.get('busy') ?? 0) +
-    (stageMap.get('switched off') ?? 0) +
-    (stageMap.get('incoming off') ?? 0) +
-    (stageMap.get('wrong number') ?? 0) +
-    (stageMap.get('invalid') ?? 0) +
-    (stageMap.get('out of network') ?? 0) +
-    (stageMap.get('call back') ?? 0)
-  const connected = stageMap.get('connected') ?? (callDone > 0 ? callDone - notAnswered : 0)
-
   return {
     sourced: stageMap.get('sourced') ?? stageMap.get('new applications') ?? total,
-    callDone,
-    connected,
+    callDone: stageMap.get('call done') ?? stageMap.get('contacted') ?? (total > 0 ? total - notCalled : 0),
+    connected: stageMap.get('connected') ?? 0,
     interested: stageMap.get('interested') ?? 0,
     callBackLater: stageMap.get('call back later') ?? 0,
     notInterested: stageMap.get('not interested') ?? 0,
@@ -387,6 +372,8 @@ export function mapPipelineFlow(stages: BackendPipelineStage[]): PipelineFlow {
     notSelected: stageMap.get('not selected') ?? 0,
     joined: stageMap.get('joined') ?? 0,
     notJoined: stageMap.get('not joined') ?? 0,
+    backedOut: stageMap.get('backed out') ?? 0,
+    pendingJoining: stageMap.get('pending joining') ?? stageMap.get('pending') ?? 0,
     followupsDue: stageMap.get('followups due') ?? 0,
   }
 }
@@ -410,6 +397,8 @@ export function mapPipelineFlowFromObject(obj: Record<string, unknown>): Pipelin
     notSelected: num('not_selected'),
     joined: num('joined'),
     notJoined: num('not_joined'),
+    backedOut: num('backed_out'),
+    pendingJoining: num('pending_joining'),
     followupsDue: num('followups_due'),
   }
 }

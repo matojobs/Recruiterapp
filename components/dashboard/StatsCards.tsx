@@ -6,6 +6,7 @@ interface StatsCardsProps {
   stats: DashboardStats
 }
 
+// SVG icons as inline components for clean rendering
 const Icons = {
   sourced: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -61,16 +62,86 @@ const Icons = {
 
 export default function StatsCards({ stats }: StatsCardsProps) {
   const cards = [
-    { title: 'Total Sourced', value: stats.totalSourced, icon: Icons.sourced, accent: 'border-blue-500', iconBg: 'bg-blue-50 text-blue-600' },
-    { title: 'Calls Done', value: stats.callsDoneToday, icon: Icons.calls, accent: 'border-cyan-500', iconBg: 'bg-cyan-50 text-cyan-600' },
-    { title: 'Connected', value: stats.connectedToday, icon: Icons.connected, accent: 'border-emerald-500', iconBg: 'bg-emerald-50 text-emerald-600' },
-    { title: 'Interested', value: stats.interestedToday, icon: Icons.interested, accent: 'border-teal-500', iconBg: 'bg-teal-50 text-teal-600' },
-    { title: 'Not Interested', value: stats.notInterestedToday, icon: Icons.notInterested, accent: 'border-red-400', iconBg: 'bg-red-50 text-red-500' },
-    { title: 'Interviews Scheduled', value: stats.interviewsScheduled, icon: Icons.calendar, accent: 'border-yellow-500', iconBg: 'bg-yellow-50 text-yellow-600' },
-    { title: 'Interviews Done', value: stats.interviewsDoneToday, icon: Icons.check, accent: 'border-orange-500', iconBg: 'bg-orange-50 text-orange-600' },
-    { title: 'Selected (Month)', value: stats.selectedThisMonth, icon: Icons.target, accent: 'border-purple-500', iconBg: 'bg-purple-50 text-purple-600' },
-    { title: 'Joined (Month)', value: stats.joinedThisMonth, icon: Icons.joined, accent: 'border-pink-500', iconBg: 'bg-pink-50 text-pink-600' },
-    { title: 'Pending Joining', value: stats.pendingJoining, icon: Icons.pending, accent: 'border-indigo-500', iconBg: 'bg-indigo-50 text-indigo-600' },
+    {
+      title: 'Total Sourced',
+      value: stats.totalSourced,
+      icon: Icons.sourced,
+      accent: 'border-blue-500',
+      iconBg: 'bg-blue-50 text-blue-600',
+      group: 'top',
+    },
+    {
+      title: 'Calls Done',
+      value: stats.callsDoneToday,
+      icon: Icons.calls,
+      accent: 'border-cyan-500',
+      iconBg: 'bg-cyan-50 text-cyan-600',
+      group: 'top',
+    },
+    {
+      title: 'Connected',
+      value: stats.connectedToday,
+      icon: Icons.connected,
+      accent: 'border-emerald-500',
+      iconBg: 'bg-emerald-50 text-emerald-600',
+      group: 'top',
+    },
+    {
+      title: 'Interested',
+      value: stats.interestedToday,
+      icon: Icons.interested,
+      accent: 'border-teal-500',
+      iconBg: 'bg-teal-50 text-teal-600',
+      group: 'top',
+    },
+    {
+      title: 'Not Interested',
+      value: stats.notInterestedToday,
+      icon: Icons.notInterested,
+      accent: 'border-red-400',
+      iconBg: 'bg-red-50 text-red-500',
+      group: 'top',
+    },
+    {
+      title: 'Interviews Scheduled',
+      value: stats.interviewsScheduled,
+      icon: Icons.calendar,
+      accent: 'border-yellow-500',
+      iconBg: 'bg-yellow-50 text-yellow-600',
+      group: 'bottom',
+    },
+    {
+      title: 'Interviews Done',
+      value: stats.interviewsDoneToday,
+      icon: Icons.check,
+      accent: 'border-orange-500',
+      iconBg: 'bg-orange-50 text-orange-600',
+      group: 'bottom',
+    },
+    {
+      title: 'Selected (Month)',
+      value: stats.selectedThisMonth,
+      icon: Icons.target,
+      accent: 'border-purple-500',
+      iconBg: 'bg-purple-50 text-purple-600',
+      group: 'bottom',
+    },
+    {
+      title: 'Joined (Month)',
+      value: stats.joinedThisMonth,
+      icon: Icons.joined,
+      accent: 'border-pink-500',
+      iconBg: 'bg-pink-50 text-pink-600',
+      group: 'bottom',
+    },
+    {
+      title: 'Pending Joining',
+      value: stats.pendingJoining,
+      icon: Icons.pending,
+      accent: 'border-indigo-500',
+      iconBg: 'bg-indigo-50 text-indigo-600',
+      group: 'bottom',
+    },
   ]
 
   return (

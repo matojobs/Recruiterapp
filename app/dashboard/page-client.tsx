@@ -45,7 +45,7 @@ export default function DashboardPageClient() {
         ...statsData,
         notInterestedToday: appsData.filter(a => a.interested_status === 'No').length,
         interviewsScheduled: appsData.filter(a => a.interview_scheduled === true).length,
-        interviewsDoneToday: appsData.filter(a => a.interview_status === 'Not Attended' || a.interview_status === 'Rejected').length,
+        interviewsDoneToday: appsData.filter(a => a.interview_status === 'Done' || a.interview_status === 'Not Attended' || a.interview_status === 'Rejected').length,
         pendingJoining: appsData.filter(a => a.joining_status === 'Pending').length,
       } : statsData)
       // Compute pipeline as a cumulative funnel from all apps.
@@ -65,6 +65,8 @@ export default function DashboardPageClient() {
         notSelected: appsData.filter(a => a.selection_status === 'Not Selected').length,
         joined: appsData.filter(a => a.joining_status === 'Joined').length,
         notJoined: appsData.filter(a => a.joining_status === 'Not Joined').length,
+        backedOut: appsData.filter(a => a.joining_status === 'Backed Out').length,
+        pendingJoining: appsData.filter(a => a.selection_status === 'Selected' && (a.joining_status === 'Pending' || a.joining_status == null)).length,
         followupsDue: 0,
       })
     } catch (error) {

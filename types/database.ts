@@ -97,6 +97,8 @@ export interface PipelineFlow {
   notSelected: number;
   joined: number;
   notJoined: number;
+  backedOut: number;
+  pendingJoining: number;
   followupsDue: number;
 }
 
@@ -114,6 +116,8 @@ export const EMPTY_PIPELINE_FLOW: PipelineFlow = {
   notSelected: 0,
   joined: 0,
   notJoined: 0,
+  backedOut: 0,
+  pendingJoining: 0,
   followupsDue: 0,
 }
 

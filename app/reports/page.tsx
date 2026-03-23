@@ -37,11 +37,16 @@ const PIPELINE_STAGES = [
   { key: 'callDone', label: 'Call Done', color: '#3b82f6' },
   { key: 'connected', label: 'Connected', color: '#06b6d4' },
   { key: 'interested', label: 'Interested', color: '#10b981' },
+  { key: 'callBackLater', label: 'Call Back Later', color: '#facc15' },
   { key: 'notInterested', label: 'Not Interested', color: '#f87171' },
   { key: 'interviewScheduled', label: 'Interview Scheduled', color: '#f59e0b' },
   { key: 'interviewDone', label: 'Interview Done', color: '#f97316' },
   { key: 'selected', label: 'Selected', color: '#8b5cf6' },
+  { key: 'notSelected', label: 'Not Selected', color: '#f43f5e' },
   { key: 'joined', label: 'Joined', color: '#ec4899' },
+  { key: 'notJoined', label: 'Not Joined', color: '#9ca3af' },
+  { key: 'backedOut', label: 'Backed Out', color: '#ea580c' },
+  { key: 'pendingJoining', label: 'Pending Joining', color: '#818cf8' },
 ]
 
 const DATE_PRESETS: { label: string; value: DatePreset }[] = [
@@ -51,7 +56,17 @@ const DATE_PRESETS: { label: string; value: DatePreset }[] = [
 ]
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-function MetricCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
+function MetricCard({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string
+  value: string | number
+  sub?: string
+  accent?: string
+}) {
   return (
     <div className={`bg-white rounded-xl border border-gray-100 shadow-sm p-5 border-l-4 ${accent || 'border-l-gray-300'}`}>
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide leading-tight">{label}</p>
@@ -107,17 +122,27 @@ export default function ReportsPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  // ── Computed ─────────────────────────────────────────────────────────────
   const pipelineChartData = useMemo(() =>
     PIPELINE_STAGES
-      .filter(s => (flow[s.key as keyof PipelineFlow] as number) > 0)
-      .map(s => ({ name: s.label, value: flow[s.key as keyof PipelineFlow] as number, color: s.color }))
+      .filter(s => flow[s.key as keyof PipelineFlow] as number > 0)
+      .map(s => ({
+        name: s.label,
+        value: flow[s.key as keyof PipelineFlow] as number,
+        color: s.color,
+      }))
   , [flow])
 
   const companyStats = useMemo(() => {
-    const map = new Map<string, { name: string; total: number; connected: number; interested: number; interviews: number; selected: number; joined: number }>()
+    const map = new Map<string, {
+      name: string; total: number; connected: number; interested: number
+      interviews: number; selected: number; joined: number
+    }>()
     applications.forEach((app) => {
       const name = (app.job_role as any)?.company?.company_name || 'Unknown'
-      if (!map.has(name)) map.set(name, { name, total: 0, connected: 0, interested: 0, interviews: 0, selected: 0, joined: 0 })
+      if (!map.has(name)) {
+        map.set(name, { name, total: 0, connected: 0, interested: 0, interviews: 0, selected: 0, joined: 0 })
+      }
       const s = map.get(name)!
       s.total++
       if (app.call_status === 'Connected') s.connected++
@@ -129,11 +154,15 @@ export default function ReportsPage() {
     return Array.from(map.values()).sort((a, b) => b.total - a.total)
   }, [applications])
 
+  // ── Exports ───────────────────────────────────────────────────────────────
   function exportPipeline() {
     const data = PIPELINE_STAGES.map((s, i) => ({
       Stage: s.label,
       Count: flow[s.key as keyof PipelineFlow],
-      'From Previous (%)': i === 0 ? '100%' : `${calculatePercentage(flow[s.key as keyof PipelineFlow] as number, flow[PIPELINE_STAGES[i - 1].key as keyof PipelineFlow] as number)}%`,
+      'From Previous (%)': i === 0 ? '100%' : `${calculatePercentage(
+        flow[s.key as keyof PipelineFlow] as number,
+        flow[PIPELINE_STAGES[i - 1].key as keyof PipelineFlow] as number,
+      )}%`,
     }))
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
@@ -143,10 +172,15 @@ export default function ReportsPage() {
 
   function exportCompany() {
     const data = companyStats.map(c => ({
-      Company: c.name, Sourced: c.total, Connected: c.connected,
+      Company: c.name,
+      Sourced: c.total,
+      Connected: c.connected,
       'Connected %': `${calculatePercentage(c.connected, c.total)}%`,
-      Interested: c.interested, 'Interest %': `${calculatePercentage(c.interested, c.connected)}%`,
-      'Interviews Scheduled': c.interviews, Selected: c.selected, Joined: c.joined,
+      Interested: c.interested,
+      'Interest %': `${calculatePercentage(c.interested, c.connected)}%`,
+      'Interviews Scheduled': c.interviews,
+      Selected: c.selected,
+      Joined: c.joined,
       'Joining %': `${calculatePercentage(c.joined, c.total)}%`,
     }))
     const ws = XLSX.utils.json_to_sheet(data)
@@ -155,6 +189,7 @@ export default function ReportsPage() {
     XLSX.writeFile(wb, `company_report_${new Date().toISOString().split('T')[0]}.xlsx`)
   }
 
+  // ── Loading / Error ───────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
@@ -180,46 +215,71 @@ export default function ReportsPage() {
   const overallConversion = flow.sourced > 0 ? calculatePercentage(flow.joined, flow.sourced) : 0
   const connectRate = flow.callDone > 0 ? calculatePercentage(flow.connected, flow.callDone) : 0
   const interestRate = flow.connected > 0 ? calculatePercentage(flow.interested, flow.connected) : 0
+  const joinRate = flow.selected > 0 ? calculatePercentage(flow.joined, flow.selected) : 0
 
   return (
     <div className="space-y-5">
-      {/* Header */}
+      {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Reports</h1>
           <p className="text-sm text-gray-500 mt-0.5">Analyse your recruitment pipeline and performance</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Date filter */}
           <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
             {DATE_PRESETS.map(p => (
-              <button key={p.value} onClick={() => setDatePreset(p.value)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${datePreset === p.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              <button
+                key={p.value}
+                onClick={() => setDatePreset(p.value)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  datePreset === p.value
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
                 {p.label}
               </button>
             ))}
           </div>
-          {tab === 'pipeline' && <Button onClick={exportPipeline} variant="outline">Export</Button>}
-          {tab === 'company' && <Button onClick={exportCompany} variant="outline">Export</Button>}
+          {tab === 'pipeline' && (
+            <Button onClick={exportPipeline} variant="outline">
+              Export
+            </Button>
+          )}
+          {tab === 'company' && (
+            <Button onClick={exportCompany} variant="outline">
+              Export
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* ── Tabs ── */}
       <div className="flex border-b border-gray-200">
         {([
           { key: 'pipeline', label: 'Pipeline Flow' },
           { key: 'performance', label: 'My Performance' },
           { key: 'company', label: 'Company-wise' },
         ] as { key: ReportTab; label: string }[]).map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${tab === t.key ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              tab === t.key
+                ? 'border-primary-600 text-primary-700'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
             {t.label}
           </button>
         ))}
       </div>
 
-      {/* Pipeline Tab */}
+      {/* ── Pipeline Tab ── */}
       {tab === 'pipeline' && (
         <div className="space-y-5">
+          {/* KPI row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <MetricCard label="Total Sourced" value={flow.sourced} sub="All time / filtered" accent="border-l-slate-500" />
             <MetricCard label="Connect Rate" value={`${connectRate}%`} sub={`${flow.connected} of ${flow.callDone} called`} accent="border-l-cyan-500" />
@@ -227,6 +287,7 @@ export default function ReportsPage() {
             <MetricCard label="Joining Rate" value={`${overallConversion}%`} sub={`${flow.joined} joined of ${flow.sourced} sourced`} accent="border-l-pink-500" />
           </div>
 
+          {/* Bar chart */}
           {pipelineChartData.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
               <SectionHeader title="Pipeline Breakdown" description="Candidate count at each stage" />
@@ -235,9 +296,14 @@ export default function ReportsPage() {
                   <BarChart data={pipelineChartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} formatter={(v: number) => [v, 'Candidates']} />
+                    <Tooltip
+                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                      formatter={(v: number) => [v, 'Candidates']}
+                    />
                     <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                      {pipelineChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                      {pipelineChartData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -245,6 +311,7 @@ export default function ReportsPage() {
             </div>
           )}
 
+          {/* Detailed table */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
               <SectionHeader title="Stage-by-stage Breakdown" description="Conversion from one stage to the next" />
@@ -253,9 +320,10 @@ export default function ReportsPage() {
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    {['Stage', 'Count', 'Conv. from Previous', 'Overall %'].map(h => (
-                      <th key={h} className={`px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide ${h === 'Stage' ? 'text-left' : 'text-center'}`}>{h}</th>
-                    ))}
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Stage</th>
+                    <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Count</th>
+                    <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Conv. from Previous</th>
+                    <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Overall %</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -268,15 +336,26 @@ export default function ReportsPage() {
                       <tr key={s.key} className="hover:bg-gray-50 transition-colors">
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                            <span
+                              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: s.color }}
+                            />
                             <span className="font-medium text-gray-800">{s.label}</span>
                           </div>
                         </td>
                         <td className="px-5 py-3 text-center font-bold text-gray-900">{value}</td>
                         <td className="px-5 py-3 text-center">
                           {fromPrev !== null ? (
-                            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${fromPrev >= 60 ? 'bg-emerald-100 text-emerald-700' : fromPrev >= 30 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>{fromPrev}%</span>
-                          ) : <span className="text-xs text-gray-400">—</span>}
+                            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                              fromPrev >= 60 ? 'bg-emerald-100 text-emerald-700' :
+                              fromPrev >= 30 ? 'bg-amber-100 text-amber-700' :
+                              'bg-red-100 text-red-600'
+                            }`}>
+                              {fromPrev}%
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
                         </td>
                         <td className="px-5 py-3 text-center text-xs text-gray-500">{overall}%</td>
                       </tr>
@@ -289,7 +368,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* My Performance Tab */}
+      {/* ── My Performance Tab ── */}
       {tab === 'performance' && stats && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -297,23 +376,43 @@ export default function ReportsPage() {
             <MetricCard label="Total Calls" value={stats.callsDoneToday} sub="Calls attempted" accent="border-l-blue-500" />
             <MetricCard label="Connected" value={stats.connectedToday} sub="Calls connected" accent="border-l-cyan-500" />
             <MetricCard label="Interested" value={stats.interestedToday} sub="Candidates interested" accent="border-l-emerald-500" />
-            <MetricCard label="Interviews Scheduled" value={stats.interviewsScheduled} sub="Upcoming" accent="border-l-amber-500" />
-            <MetricCard label="Interviews Done" value={stats.interviewsDoneToday} sub="Conducted" accent="border-l-orange-500" />
+            <MetricCard label="Interviews Scheduled" value={stats.interviewsScheduled} sub="Upcoming interviews" accent="border-l-amber-500" />
+            <MetricCard label="Interviews Done" value={stats.interviewsDoneToday} sub="Interviews conducted" accent="border-l-orange-500" />
             <MetricCard label="Selected" value={stats.selectedThisMonth} sub="This month" accent="border-l-violet-500" />
             <MetricCard label="Joined" value={stats.joinedThisMonth} sub="This month" accent="border-l-pink-500" />
           </div>
 
+          {/* Conversion chain */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
             <SectionHeader title="Conversion Funnel" description="Key conversion rates across your pipeline" />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
               {[
-                { label: 'Call → Connect', rate: stats.callsDoneToday > 0 ? calculatePercentage(stats.connectedToday, stats.callsDoneToday) : 0, desc: `${stats.connectedToday} of ${stats.callsDoneToday} calls connected`, tip: 'Aim for >40%. Low rate = better calling time or list quality needed.' },
-                { label: 'Connect → Interest', rate: stats.connectedToday > 0 ? calculatePercentage(stats.interestedToday, stats.connectedToday) : 0, desc: `${stats.interestedToday} of ${stats.connectedToday} interested`, tip: 'Aim for >50%. Low rate = pitch improvement needed.' },
-                { label: 'Selected → Joined', rate: stats.selectedThisMonth > 0 ? calculatePercentage(stats.joinedThisMonth, stats.selectedThisMonth) : 0, desc: `${stats.joinedThisMonth} of ${stats.selectedThisMonth} joined`, tip: 'Aim for >70%. Low rate = offer/follow-up improvement needed.' },
+                {
+                  label: 'Call → Connect',
+                  rate: stats.callsDoneToday > 0 ? calculatePercentage(stats.connectedToday, stats.callsDoneToday) : 0,
+                  desc: `${stats.connectedToday} of ${stats.callsDoneToday} calls connected`,
+                  tip: 'Aim for >40%. Low rate = better calling time or list quality needed.',
+                },
+                {
+                  label: 'Connect → Interest',
+                  rate: stats.connectedToday > 0 ? calculatePercentage(stats.interestedToday, stats.connectedToday) : 0,
+                  desc: `${stats.interestedToday} of ${stats.connectedToday} interested`,
+                  tip: 'Aim for >50%. Low rate = pitch improvement needed.',
+                },
+                {
+                  label: 'Selected → Joined',
+                  rate: stats.selectedThisMonth > 0 ? calculatePercentage(stats.joinedThisMonth, stats.selectedThisMonth) : 0,
+                  desc: `${stats.joinedThisMonth} of ${stats.selectedThisMonth} joined`,
+                  tip: 'Aim for >70%. Low rate = offer/follow-up improvement needed.',
+                },
               ].map(item => (
                 <div key={item.label} className="bg-gray-50 rounded-lg p-4">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{item.label}</p>
-                  <p className={`text-3xl font-bold mt-1 ${item.rate >= 60 ? 'text-emerald-600' : item.rate >= 35 ? 'text-amber-600' : 'text-red-500'}`}>{item.rate}%</p>
+                  <p className={`text-3xl font-bold mt-1 ${
+                    item.rate >= 60 ? 'text-emerald-600' :
+                    item.rate >= 35 ? 'text-amber-600' :
+                    'text-red-500'
+                  }`}>{item.rate}%</p>
                   <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
                   <p className="text-xs text-gray-400 mt-2 italic">{item.tip}</p>
                 </div>
@@ -321,43 +420,62 @@ export default function ReportsPage() {
             </div>
           </div>
 
+          {/* Focus areas */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
             <SectionHeader title="Where to Focus" description="Actionable insights based on your current numbers" />
             <div className="space-y-3 mt-2">
               {stats.callsDoneToday === 0 && (
                 <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
                   <span className="text-blue-500 font-bold text-lg leading-none mt-0.5">→</span>
-                  <div><p className="text-sm font-semibold text-blue-800">Start calling candidates</p><p className="text-xs text-blue-600 mt-0.5">You have {stats.totalSourced} sourced candidates. Start making calls to build your pipeline.</p></div>
+                  <div>
+                    <p className="text-sm font-semibold text-blue-800">Start calling candidates</p>
+                    <p className="text-xs text-blue-600 mt-0.5">You have {stats.totalSourced} sourced candidates. Start making calls to build your pipeline.</p>
+                  </div>
                 </div>
               )}
               {stats.callsDoneToday > 0 && stats.connectedToday === 0 && (
                 <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg">
                   <span className="text-amber-600 font-bold text-lg leading-none mt-0.5">!</span>
-                  <div><p className="text-sm font-semibold text-amber-800">Low connect rate</p><p className="text-xs text-amber-600 mt-0.5">0 connects from {stats.callsDoneToday} calls. Try calling at different times (10–11 AM or 5–7 PM).</p></div>
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">Low connect rate</p>
+                    <p className="text-xs text-amber-600 mt-0.5">0 connects from {stats.callsDoneToday} calls. Try calling at different times (10–11 AM or 5–7 PM).</p>
+                  </div>
                 </div>
               )}
               {stats.interviewsScheduled > 0 && stats.interviewsDoneToday === 0 && (
                 <div className="flex items-start gap-3 p-3 bg-violet-50 rounded-lg">
                   <span className="text-violet-600 font-bold text-lg leading-none mt-0.5">📅</span>
-                  <div><p className="text-sm font-semibold text-violet-800">Pending interviews</p><p className="text-xs text-violet-600 mt-0.5">{stats.interviewsScheduled} interviews scheduled. Follow up the day before to reduce no-shows.</p></div>
+                  <div>
+                    <p className="text-sm font-semibold text-violet-800">Pending interviews</p>
+                    <p className="text-xs text-violet-600 mt-0.5">{stats.interviewsScheduled} interviews scheduled. Follow up the day before to reduce no-shows.</p>
+                  </div>
                 </div>
               )}
               {stats.selectedThisMonth > 0 && stats.joinedThisMonth < stats.selectedThisMonth && (
                 <div className="flex items-start gap-3 p-3 bg-pink-50 rounded-lg">
                   <span className="text-pink-600 font-bold text-lg leading-none mt-0.5">✓</span>
-                  <div><p className="text-sm font-semibold text-pink-800">Follow up on selected candidates</p><p className="text-xs text-pink-600 mt-0.5">{stats.selectedThisMonth - stats.joinedThisMonth} selected but not yet joined.</p></div>
+                  <div>
+                    <p className="text-sm font-semibold text-pink-800">Follow up on selected candidates</p>
+                    <p className="text-xs text-pink-600 mt-0.5">{stats.selectedThisMonth - stats.joinedThisMonth} selected but not yet joined. Proactive follow-up prevents dropouts.</p>
+                  </div>
                 </div>
               )}
               {stats.callsDoneToday > 0 && stats.connectedToday > 0 && stats.interestedToday === 0 && (
                 <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
                   <span className="text-red-500 font-bold text-lg leading-none mt-0.5">↓</span>
-                  <div><p className="text-sm font-semibold text-red-800">No interested candidates</p><p className="text-xs text-red-600 mt-0.5">You&apos;re connecting but not converting. Review your pitch — highlight salary, growth, and role benefits.</p></div>
+                  <div>
+                    <p className="text-sm font-semibold text-red-800">No interested candidates</p>
+                    <p className="text-xs text-red-600 mt-0.5">You&apos;re connecting but not converting. Review your pitch — highlight salary, growth, and role benefits.</p>
+                  </div>
                 </div>
               )}
               {stats.totalSourced > 0 && stats.callsDoneToday > 0 && stats.connectedToday > 0 && stats.interestedToday > 0 && stats.selectedThisMonth > 0 && stats.joinedThisMonth > 0 && (
                 <div className="flex items-start gap-3 p-3 bg-emerald-50 rounded-lg">
                   <span className="text-emerald-600 font-bold text-lg leading-none mt-0.5">🎯</span>
-                  <div><p className="text-sm font-semibold text-emerald-800">Pipeline is healthy</p><p className="text-xs text-emerald-600 mt-0.5">Candidates are moving through all stages. Keep up the momentum.</p></div>
+                  <div>
+                    <p className="text-sm font-semibold text-emerald-800">Pipeline is healthy</p>
+                    <p className="text-xs text-emerald-600 mt-0.5">Candidates are moving through all stages. Keep up the momentum.</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -365,7 +483,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Company Tab */}
+      {/* ── Company Tab ── */}
       {tab === 'company' && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -374,6 +492,7 @@ export default function ReportsPage() {
             <MetricCard label="Total Selected" value={companyStats.reduce((s, c) => s + c.selected, 0)} sub="Across all companies" accent="border-l-violet-500" />
             <MetricCard label="Total Joined" value={companyStats.reduce((s, c) => s + c.joined, 0)} sub="Across all companies" accent="border-l-pink-500" />
           </div>
+
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
               <SectionHeader title="Company-wise Funnel" description="Conversion rates across all companies in your pipeline" />
@@ -386,7 +505,9 @@ export default function ReportsPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       {['Company', 'Sourced', 'Connected', 'Interested', 'Interviews', 'Selected', 'Joined', 'Joining %'].map(h => (
-                        <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide ${h === 'Company' ? 'text-left' : 'text-center'}`}>{h}</th>
+                        <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide ${h === 'Company' ? 'text-left' : 'text-center'}`}>
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -394,7 +515,7 @@ export default function ReportsPage() {
                     {companyStats.map((c, i) => {
                       const joiningPct = calculatePercentage(c.joined, c.total)
                       return (
-                        <tr key={i} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-gray-50/40' : ''}`}>
+                        <tr key={i} className={`hover:bg-gray-50 transition-colors ${i % 2 === 0 ? '' : 'bg-gray-50/40'}`}>
                           <td className="px-4 py-3 font-medium text-gray-900">{c.name}</td>
                           <td className="px-4 py-3 text-center font-bold text-gray-900">{c.total}</td>
                           <td className="px-4 py-3 text-center text-gray-700">{c.connected}</td>
@@ -403,7 +524,13 @@ export default function ReportsPage() {
                           <td className="px-4 py-3 text-center text-gray-700">{c.selected}</td>
                           <td className="px-4 py-3 text-center text-gray-700">{c.joined}</td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${joiningPct >= 20 ? 'bg-emerald-100 text-emerald-700' : joiningPct >= 10 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{joiningPct}%</span>
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                              joiningPct >= 20 ? 'bg-emerald-100 text-emerald-700' :
+                              joiningPct >= 10 ? 'bg-amber-100 text-amber-700' :
+                              'bg-gray-100 text-gray-500'
+                            }`}>
+                              {joiningPct}%
+                            </span>
                           </td>
                         </tr>
                       )

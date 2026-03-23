@@ -84,6 +84,8 @@ export function computePipelineFlowFromApplications(applications: Application[])
     notSelected: applications.filter((app) => app.selection_status === 'Not Selected').length,
     joined: applications.filter((app) => app.joining_status === 'Joined').length,
     notJoined: applications.filter((app) => app.joining_status === 'Not Joined').length,
+    backedOut: applications.filter((app) => app.joining_status === 'Backed Out').length,
+    pendingJoining: applications.filter((app) => app.selection_status === 'Selected' && (app.joining_status === 'Pending' || app.joining_status == null)).length,
     followupsDue: 0,
   }
 }
