@@ -360,11 +360,17 @@ export function mapPipelineFlow(stages: BackendPipelineStage[]): PipelineFlow {
     callDone: stageMap.get('call done') ?? stageMap.get('contacted') ?? (total > 0 ? total - notCalled : 0),
     connected: stageMap.get('connected') ?? 0,
     interested: stageMap.get('interested') ?? 0,
+    callBackLater: stageMap.get('call back later') ?? 0,
     notInterested: stageMap.get('not interested') ?? 0,
     interviewScheduled: stageMap.get('interview scheduled') ?? 0,
     interviewDone: stageMap.get('interview done') ?? 0,
     selected: stageMap.get('selected') ?? 0,
+    notSelected: stageMap.get('not selected') ?? 0,
     joined: stageMap.get('joined') ?? 0,
+    notJoined: stageMap.get('not joined') ?? 0,
+    backedOut: stageMap.get('backed out') ?? 0,
+    pendingJoining: stageMap.get('pending joining') ?? stageMap.get('pending') ?? 0,
+    followupsDue: stageMap.get('followups due') ?? 0,
   }
 }
 
@@ -379,10 +385,16 @@ export function mapPipelineFlowFromObject(obj: Record<string, unknown>): Pipelin
     callDone: num('call_done'),
     connected: num('connected'),
     interested: num('interested'),
+    callBackLater: num('call_back_later'),
     notInterested: num('not_interested'),
     interviewScheduled: num('interview_scheduled'),
     interviewDone: num('interview_done'),
     selected: num('selected'),
+    notSelected: num('not_selected'),
     joined: num('joined'),
+    notJoined: num('not_joined'),
+    backedOut: num('backed_out'),
+    pendingJoining: num('pending_joining'),
+    followupsDue: num('followups_due'),
   }
 }

@@ -12,11 +12,16 @@ const stages = [
   { key: 'callDone' as const, label: 'Call Done', color: 'bg-blue-500', light: 'bg-blue-50 text-blue-700', dot: 'bg-blue-500' },
   { key: 'connected' as const, label: 'Connected', color: 'bg-cyan-500', light: 'bg-cyan-50 text-cyan-700', dot: 'bg-cyan-500' },
   { key: 'interested' as const, label: 'Interested', color: 'bg-emerald-500', light: 'bg-emerald-50 text-emerald-700', dot: 'bg-emerald-500' },
+  { key: 'callBackLater' as const, label: 'Call Back Later', color: 'bg-yellow-400', light: 'bg-yellow-50 text-yellow-700', dot: 'bg-yellow-400' },
   { key: 'notInterested' as const, label: 'Not Interested', color: 'bg-red-400', light: 'bg-red-50 text-red-600', dot: 'bg-red-400' },
   { key: 'interviewScheduled' as const, label: 'Interview Scheduled', color: 'bg-amber-500', light: 'bg-amber-50 text-amber-700', dot: 'bg-amber-500' },
   { key: 'interviewDone' as const, label: 'Interview Done', color: 'bg-orange-500', light: 'bg-orange-50 text-orange-700', dot: 'bg-orange-500' },
   { key: 'selected' as const, label: 'Selected', color: 'bg-violet-600', light: 'bg-violet-50 text-violet-700', dot: 'bg-violet-600' },
+  { key: 'notSelected' as const, label: 'Not Selected', color: 'bg-rose-500', light: 'bg-rose-50 text-rose-700', dot: 'bg-rose-500' },
   { key: 'joined' as const, label: 'Joined', color: 'bg-pink-500', light: 'bg-pink-50 text-pink-700', dot: 'bg-pink-500' },
+  { key: 'notJoined' as const, label: 'Not Joined', color: 'bg-gray-400', light: 'bg-gray-50 text-gray-600', dot: 'bg-gray-400' },
+  { key: 'backedOut' as const, label: 'Backed Out', color: 'bg-orange-600', light: 'bg-orange-50 text-orange-700', dot: 'bg-orange-600' },
+  { key: 'pendingJoining' as const, label: 'Pending Joining', color: 'bg-indigo-400', light: 'bg-indigo-50 text-indigo-700', dot: 'bg-indigo-400' },
 ]
 
 export default function PipelineFlow({ flow }: PipelineFlowProps) {

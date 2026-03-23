@@ -6,9 +6,8 @@ import PipelineFlow from '@/components/dashboard/PipelineFlow'
 import CandidateList from '@/components/dashboard/CandidateList'
 import JoinedAgeStats from '@/components/dashboard/JoinedAgeStats'
 import AddApplicationModal from '@/components/candidates/AddApplicationModal'
-import { getDashboardStats, getPipelineFlow, getApplications, getRecruiters, createApplicationWithCandidate } from '@/lib/data'
+import { getDashboardStats, getApplications, getRecruiters, createApplicationWithCandidate } from '@/lib/data'
 import { getCurrentUser, getCurrentRecruiter } from '@/lib/auth-helper'
-import { computePipelineFlowFromApplications, computeDashboardStatsFromApplications } from '@/lib/utils'
 import type { DashboardStats, PipelineFlow as PipelineFlowType, Application, Recruiter } from '@/types/database'
 import { EMPTY_PIPELINE_FLOW } from '@/types/database'
 
@@ -35,23 +34,41 @@ export default function DashboardPageClient() {
       }
 
       const recruiterId = currentUser.recruiter_id ? String(currentUser.recruiter_id) : undefined
-      const [statsData, flowData, appsData] = await Promise.all([
+      const [statsData, appsData] = await Promise.all([
         getDashboardStats(recruiterId),
-        getPipelineFlow(recruiterId ? { recruiter_id: recruiterId } : {}),
-        // For candidate list / age stats we only need the first page; backend stats are the source of truth
-        getApplications(recruiterId ? { recruiter_id: recruiterId, page: 1, limit: 50 } : { page: 1, limit: 50 }),
+        // Fetch all apps (limit 1000) — used for pipeline and missing stat fields
+        getApplications(recruiterId ? { recruiter_id: recruiterId, page: 1, limit: 1000 } : { page: 1, limit: 1000 }),
       ])
       setApplications(appsData)
       // Compute fields the /dashboard/stats endpoint doesn't return, using the full app list
-      // (we fetch limit:50 and total is 43, so appsData contains everything)
       setStats(statsData ? {
         ...statsData,
         notInterestedToday: appsData.filter(a => a.interested_status === 'No').length,
         interviewsScheduled: appsData.filter(a => a.interview_scheduled === true).length,
-        interviewsDoneToday: appsData.filter(a => a.interview_status === 'Done' || a.interview_status === 'Attended').length,
+        interviewsDoneToday: appsData.filter(a => a.interview_status === 'Done' || a.interview_status === 'Not Attended' || a.interview_status === 'Rejected').length,
         pendingJoining: appsData.filter(a => a.joining_status === 'Pending').length,
       } : statsData)
-      setFlow(flowData)
+      // Compute pipeline as a cumulative funnel from all apps.
+      // Backend /dashboard/pipeline assigns each candidate to one exclusive current stage
+      // (e.g. Connected only if NOT yet interested), which breaks funnel logic.
+      // Client-side cumulative counts: connected=all who had call answered, interested=all marked Yes, etc.
+      setFlow({
+        sourced: appsData.length,
+        callDone: appsData.filter(a => a.call_date != null).length,
+        connected: appsData.filter(a => a.call_status === 'Connected').length,
+        interested: appsData.filter(a => a.interested_status === 'Yes').length,
+        callBackLater: appsData.filter(a => a.interested_status === 'Call Back Later').length,
+        notInterested: appsData.filter(a => a.interested_status === 'No').length,
+        interviewScheduled: appsData.filter(a => a.interview_scheduled === true).length,
+        interviewDone: appsData.filter(a => a.interview_status === 'Done' || a.interview_status === 'Not Attended' || a.interview_status === 'Rejected').length,
+        selected: appsData.filter(a => a.selection_status === 'Selected').length,
+        notSelected: appsData.filter(a => a.selection_status === 'Not Selected').length,
+        joined: appsData.filter(a => a.joining_status === 'Joined').length,
+        notJoined: appsData.filter(a => a.joining_status === 'Not Joined').length,
+        backedOut: appsData.filter(a => a.joining_status === 'Backed Out').length,
+        pendingJoining: appsData.filter(a => a.selection_status === 'Selected' && (a.joining_status === 'Pending' || a.joining_status == null)).length,
+        followupsDue: 0,
+      })
     } catch (error) {
       console.error('Error loading dashboard:', error)
       setStats(null)

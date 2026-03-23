@@ -89,11 +89,17 @@ export interface PipelineFlow {
   callDone: number;
   connected: number;
   interested: number;
+  callBackLater: number;
   notInterested: number;
   interviewScheduled: number;
   interviewDone: number;
   selected: number;
+  notSelected: number;
   joined: number;
+  notJoined: number;
+  backedOut: number;
+  pendingJoining: number;
+  followupsDue: number;
 }
 
 /** Default empty pipeline flow; use for initial state. */
@@ -102,11 +108,17 @@ export const EMPTY_PIPELINE_FLOW: PipelineFlow = {
   callDone: 0,
   connected: 0,
   interested: 0,
+  callBackLater: 0,
   notInterested: 0,
   interviewScheduled: 0,
   interviewDone: 0,
   selected: 0,
+  notSelected: 0,
   joined: 0,
+  notJoined: 0,
+  backedOut: 0,
+  pendingJoining: 0,
+  followupsDue: 0,
 }
 
 /** Filters for listing applications (API query params and local filter). */
