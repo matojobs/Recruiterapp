@@ -296,32 +296,39 @@ export async function getPipelineFlow(filters?: {
   const { count: sourced } = await getBase().select('*', { count: 'exact', head: true })
   const { count: callDone } = await getBase().not('call_date', 'is', null).select('*', { count: 'exact', head: true })
   const { count: connected } = await getBase().eq('call_status', 'Connected').select('*', { count: 'exact', head: true })
+  const { count: interestPending } = await getBase().eq('call_status', 'Connected').is('interested_status', null).select('*', { count: 'exact', head: true })
   const { count: interested } = await getBase().eq('interested_status', 'Yes').select('*', { count: 'exact', head: true })
   const { count: callBackLater } = await getBase().eq('interested_status', 'Call Back Later').select('*', { count: 'exact', head: true })
   const { count: notInterested } = await getBase().eq('interested_status', 'No').select('*', { count: 'exact', head: true })
   const { count: interviewScheduled } = await getBase().eq('interview_scheduled', true).select('*', { count: 'exact', head: true })
+  const { count: interviewResultPending } = await getBase().eq('interview_scheduled', true).is('interview_status', null).select('*', { count: 'exact', head: true })
   const { count: interviewDone } = await getBase().in('interview_status', ['Done', 'Not Attended', 'Rejected']).select('*', { count: 'exact', head: true })
+  const { count: selectionPending } = await getBase().in('interview_status', ['Done', 'Not Attended', 'Rejected']).in('selection_status', ['Pending', null as any]).select('*', { count: 'exact', head: true })
   const { count: selected } = await getBase().eq('selection_status', 'Selected').select('*', { count: 'exact', head: true })
   const { count: notSelected } = await getBase().eq('selection_status', 'Not Selected').select('*', { count: 'exact', head: true })
   const { count: joined } = await getBase().eq('joining_status', 'Joined').select('*', { count: 'exact', head: true })
   const { count: notJoined } = await getBase().eq('joining_status', 'Not Joined').select('*', { count: 'exact', head: true })
   const { count: backedOut } = await getBase().eq('joining_status', 'Backed Out').select('*', { count: 'exact', head: true })
+  const { count: pendingJoining } = await getBase().eq('selection_status', 'Selected').eq('joining_status', 'Pending').select('*', { count: 'exact', head: true })
 
   return {
     sourced: sourced || 0,
     callDone: callDone || 0,
     connected: connected || 0,
+    interestPending: interestPending || 0,
     interested: interested || 0,
     callBackLater: callBackLater || 0,
     notInterested: notInterested || 0,
     interviewScheduled: interviewScheduled || 0,
+    interviewResultPending: interviewResultPending || 0,
     interviewDone: interviewDone || 0,
+    selectionPending: selectionPending || 0,
     selected: selected || 0,
     notSelected: notSelected || 0,
     joined: joined || 0,
     notJoined: notJoined || 0,
     backedOut: backedOut || 0,
-    pendingJoining: 0,
+    pendingJoining: pendingJoining || 0,
     followupsDue: 0,
   }
 }

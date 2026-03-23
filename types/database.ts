@@ -88,11 +88,14 @@ export interface PipelineFlow {
   sourced: number;
   callDone: number;
   connected: number;
+  interestPending: number;    // Connected but interested_status not yet updated
   interested: number;
   callBackLater: number;
   notInterested: number;
   interviewScheduled: number;
+  interviewResultPending: number; // Interview scheduled but result not updated
   interviewDone: number;
+  selectionPending: number;   // Interview done but selection not decided
   selected: number;
   notSelected: number;
   joined: number;
@@ -107,11 +110,14 @@ export const EMPTY_PIPELINE_FLOW: PipelineFlow = {
   sourced: 0,
   callDone: 0,
   connected: 0,
+  interestPending: 0,
   interested: 0,
   callBackLater: 0,
   notInterested: 0,
   interviewScheduled: 0,
+  interviewResultPending: 0,
   interviewDone: 0,
+  selectionPending: 0,
   selected: 0,
   notSelected: 0,
   joined: 0,
