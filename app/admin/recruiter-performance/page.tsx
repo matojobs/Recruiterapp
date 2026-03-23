@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import * as XLSX from 'xlsx'
 import {
   getRecruiterPerformanceDOD,
   getRecruiterPerformanceMTD,
@@ -17,11 +18,15 @@ import type {
   RecruiterPerformanceCompanyWiseResponse,
   RecruiterPerformanceNegativeFunnelResponse,
   RecruiterPerformanceInterviewStatusResponse,
+  NegativeFunnelRemark,
 } from '@/lib/admin/types'
 
 type TabId = 'dod' | 'mtd' | 'individual' | 'company' | 'negative' | 'interview-status'
 
-// Safe getter: never throws. Use for any row/object access.
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
+
 function safeVal(obj: unknown, key: string): string | number {
   if (obj == null || typeof obj !== 'object') return ''
   const v = (obj as Record<string, unknown>)[key]
@@ -29,57 +34,204 @@ function safeVal(obj: unknown, key: string): string | number {
   return v != null ? String(v) : ''
 }
 
-// KPI summary cards — overview first, then details
-function KPICards({ items }: { items: { label: string; value: string | number }[] }) {
+function pct(numerator: number, denominator: number): number {
+  if (!denominator || !isFinite(denominator)) return 0
+  return Math.round((numerator / denominator) * 100)
+}
+
+function fmtPct(n: number): string {
+  return `${n}%`
+}
+
+function exportToXlsx(filename: string, headers: string[], rows: object[], columnKeys: string[]) {
+  const data = [headers, ...rows.map((r) => columnKeys.map((k) => safeVal(r, k)))]
+  const ws = XLSX.utils.aoa_to_sheet(data)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Report')
+  XLSX.writeFile(wb, `${filename}.xlsx`)
+}
+
+// ---------------------------------------------------------------------------
+// KPI Cards
+// ---------------------------------------------------------------------------
+
+interface KPIItem {
+  label: string
+  value: string | number
+}
+
+function KPICards({
+  items,
+  prevItems,
+}: {
+  items: KPIItem[]
+  prevItems?: KPIItem[]
+}) {
   if (!items.length) return null
+
+  const prevMap = useMemo(() => {
+    if (!prevItems) return null
+    const m: Record<string, string | number> = {}
+    for (const pi of prevItems) m[pi.label] = pi.value
+    return m
+  }, [prevItems])
+
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-      {items.map(({ label, value }) => (
-        <div
-          key={label}
-          className="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-4 shadow-sm dark:border-gray-600 dark:from-gray-800 dark:to-gray-800"
-        >
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-        </div>
-      ))}
+      {items.map(({ label, value }) => {
+        const curr = typeof value === 'number' ? value : Number(value) || 0
+        const prev = prevMap ? (typeof prevMap[label] === 'number' ? prevMap[label] as number : Number(prevMap[label]) || 0) : null
+        let delta: React.ReactNode = null
+        if (prev !== null) {
+          const diff = curr - prev
+          if (diff > 0) {
+            delta = <span className="ml-1 text-xs font-semibold text-green-600">↑ +{diff}</span>
+          } else if (diff < 0) {
+            delta = <span className="ml-1 text-xs font-semibold text-red-500">↓ {diff}</span>
+          } else {
+            delta = <span className="ml-1 text-xs text-gray-400">—</span>
+          }
+        }
+        return (
+          <div
+            key={label}
+            className="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-4 shadow-sm dark:border-gray-600 dark:from-gray-800 dark:to-gray-800"
+          >
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</p>
+            <p className="mt-1 flex items-baseline text-2xl font-bold text-gray-900 dark:text-white">
+              {value}
+              {delta}
+            </p>
+          </div>
+        )
+      })}
     </div>
   )
 }
 
-// Bar chart for recruiter/company vs one metric (DOD/MTD/Company/Interview)
+// ---------------------------------------------------------------------------
+// Conversion Funnel
+// ---------------------------------------------------------------------------
+
+interface FunnelStep {
+  from: string
+  to: string
+  fromVal: number
+  toVal: number
+}
+
+function pctColorClass(p: number): string {
+  if (!isFinite(p) || isNaN(p)) return 'bg-red-100 text-red-600 border-red-200'
+  if (p >= 50) return 'bg-green-100 text-green-700 border-green-200'
+  if (p >= 20) return 'bg-amber-100 text-amber-700 border-amber-200'
+  return 'bg-red-100 text-red-600 border-red-200'
+}
+
+function ConversionFunnel({ steps }: { steps: FunnelStep[] }) {
+  if (!steps.length) return null
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+      <h4 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">Conversion Funnel</h4>
+      <div className="flex flex-wrap items-center gap-0">
+        {steps.map((step, i) => {
+          const p = pct(step.toVal, step.fromVal)
+          const colorCls = pctColorClass(p)
+          return (
+            <div key={i} className="flex items-center">
+              {/* Stage box */}
+              <div className="flex flex-col items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-center dark:border-gray-600 dark:bg-gray-700 min-w-[80px]">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{step.from}</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white">{step.fromVal}</span>
+              </div>
+              {/* Arrow with percentage */}
+              <div className="flex flex-col items-center mx-1">
+                <span className={`rounded border px-1.5 py-0.5 text-xs font-semibold ${colorCls}`}>{fmtPct(p)}</span>
+                <span className="text-gray-400 text-sm">→</span>
+              </div>
+              {/* Last step: show the "to" box too */}
+              {i === steps.length - 1 && (
+                <div className="flex flex-col items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-center dark:border-gray-600 dark:bg-gray-700 min-w-[80px]">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{step.to}</span>
+                  <span className="text-lg font-bold text-gray-900 dark:text-white">{step.toVal}</span>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ReportBarChart — multi-metric selector
+// ---------------------------------------------------------------------------
+
+const BAR_COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#c084fc', '#d8b4fe', '#818cf8']
+
 function ReportBarChart({
   data,
   nameKey,
-  valueKey,
-  valueLabel,
+  metrics,
+  defaultMetric,
   maxBars = 12,
 }: {
   data: object[]
   nameKey: string
-  valueKey: string
-  valueLabel: string
+  metrics: { key: string; label: string }[]
+  defaultMetric?: string
   maxBars?: number
 }) {
+  const [activeMetric, setActiveMetric] = useState(defaultMetric ?? metrics[0]?.key ?? '')
+
+  const activeLabel = useMemo(
+    () => metrics.find((m) => m.key === activeMetric)?.label ?? activeMetric,
+    [metrics, activeMetric]
+  )
+
   const chartData = useMemo(() => {
-    const safe = Array.isArray(data) ? data.filter((r): r is Record<string, unknown> => r != null && typeof r === 'object') : []
+    const safe = Array.isArray(data)
+      ? data.filter((r): r is Record<string, unknown> => r != null && typeof r === 'object')
+      : []
     return safe
       .slice(0, maxBars)
-      .map((r) => ({ name: String(safeVal(r, nameKey) || '').slice(0, 18), value: Number(safeVal(r, valueKey)) || 0 }))
+      .map((r) => ({
+        name: String(safeVal(r, nameKey) || '').slice(0, 18),
+        value: Number(safeVal(r, activeMetric)) || 0,
+      }))
       .filter((d) => d.name && d.name !== 'Total')
-  }, [data, nameKey, valueKey, maxBars])
+  }, [data, nameKey, activeMetric, maxBars])
+
   if (chartData.length === 0) return null
-  const BAR_COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#c084fc', '#d8b4fe']
+
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-      <h4 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">By {valueLabel}</h4>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200">By Recruiter</h4>
+        <div className="ml-auto flex flex-wrap gap-1">
+          {metrics.map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              onClick={() => setActiveMetric(m.key)}
+              className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
+                activeMetric === m.key
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
             <XAxis type="number" tick={{ fontSize: 11 }} />
             <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11 }} />
             <Tooltip />
-            <Bar dataKey="value" name={valueLabel} radius={4}>
+            <Bar dataKey="value" name={activeLabel} radius={4}>
               {chartData.map((_, i) => (
                 <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
               ))}
@@ -91,7 +243,10 @@ function ReportBarChart({
   )
 }
 
-// Table with sort, search, sticky header (accepts API row types; normalizes internally)
+// ---------------------------------------------------------------------------
+// SafeTable — with export + vs-target column
+// ---------------------------------------------------------------------------
+
 function SafeTable({
   title,
   rows,
@@ -102,6 +257,9 @@ function SafeTable({
   searchPlaceholder,
   searchColumnKey,
   numericColumnKeys,
+  onExport,
+  targetColumn,
+  targets,
 }: {
   title: string
   rows: object[]
@@ -112,6 +270,9 @@ function SafeTable({
   searchPlaceholder?: string
   searchColumnKey?: string
   numericColumnKeys?: string[]
+  onExport?: () => void
+  targetColumn?: string
+  targets?: Record<string, number>
 }) {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<string | null>(null)
@@ -124,6 +285,15 @@ function SafeTable({
   const safeLabels = Array.isArray(columnLabels) ? columnLabels : columnKeys
   const nameKey = searchColumnKey ?? columnKeys[0] ?? ''
   const numericKeys = useMemo(() => new Set(numericColumnKeys ?? columnKeys.slice(1)), [numericColumnKeys, columnKeys])
+
+  // Determine if we should show "vs Target" column
+  const showTargetCol = useMemo(() => {
+    if (!targets || Object.keys(targets).length === 0 || !targetColumn) return false
+    return safeRows.some((r) => {
+      const id = String(safeVal(r, 'recruiter_id') || safeVal(r, 'recruiter_name'))
+      return id && targets[id] != null
+    })
+  }, [targets, targetColumn, safeRows])
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -152,19 +322,46 @@ function SafeTable({
     }
   }
 
+  const renderTargetCell = (row: Record<string, unknown>): React.ReactNode => {
+    if (!showTargetCol || !targets || !targetColumn) return null
+    const id = String(safeVal(row, 'recruiter_id') || safeVal(row, 'recruiter_name'))
+    const target = targets[id]
+    if (target == null) return <td className="px-3 py-2.5 text-gray-400 dark:text-gray-500">—</td>
+    const actual = Number(safeVal(row, targetColumn)) || 0
+    const met = actual >= target
+    return (
+      <td className="px-3 py-2.5">
+        <span className={`text-sm font-medium ${met ? 'text-green-600' : 'text-red-500'}`}>
+          {actual}/{target} {met ? '✓' : '✗'}
+        </span>
+      </td>
+    )
+  }
+
   return (
     <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-2 dark:border-gray-700">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{title}</h3>
-        {searchColumnKey && (
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={searchPlaceholder ?? `Search…`}
-            className="w-48 rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-          />
-        )}
+        <div className="flex items-center gap-2">
+          {searchColumnKey && (
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={searchPlaceholder ?? `Search…`}
+              className="w-48 rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+          )}
+          {onExport && (
+            <button
+              type="button"
+              onClick={onExport}
+              className="flex items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+            >
+              ↓ Export
+            </button>
+          )}
+        </div>
       </div>
       <div className="max-h-[420px] overflow-auto">
         <table className="w-full border-collapse text-sm">
@@ -182,11 +379,18 @@ function SafeTable({
                   </span>
                 </th>
               ))}
+              {showTargetCol && (
+                <th className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">vs Target</th>
+              )}
             </tr>
           </thead>
           <tbody>
             {sortedRows.map((row, idx) => {
-              const isTotal = highlightTotalRow && (safeVal(row, 'recruiter_name') === 'Total' || safeVal(row, 'recruiter_id') === '' || row.recruiter_id == null)
+              const isTotal =
+                highlightTotalRow &&
+                (safeVal(row, 'recruiter_name') === 'Total' ||
+                  safeVal(row, 'recruiter_id') === '' ||
+                  (row as Record<string, unknown>).recruiter_id == null)
               const isEven = idx % 2 === 0
               const rowBg = isTotal
                 ? 'bg-amber-50/50 dark:bg-amber-900/10'
@@ -196,13 +400,16 @@ function SafeTable({
               return (
                 <tr
                   key={idx}
-                  className={`border-b border-gray-100 dark:border-gray-700 transition-colors hover:bg-indigo-50/60 dark:hover:bg-indigo-900/20 ${isTotal ? 'border-t-2 border-gray-300 font-medium dark:border-gray-600 ' + rowBg : rowBg}`}
+                  className={`border-b border-gray-100 dark:border-gray-700 transition-colors hover:bg-indigo-50/60 dark:hover:bg-indigo-900/20 ${
+                    isTotal ? 'border-t-2 border-gray-300 font-medium dark:border-gray-600 ' + rowBg : rowBg
+                  }`}
                 >
                   {columnKeys.map((k) => (
                     <td key={String(k)} className="px-3 py-2.5 text-gray-800 dark:text-gray-200">
                       {safeVal(row, k)}
                     </td>
                   ))}
+                  {showTargetCol && renderTargetCell(row)}
                 </tr>
               )
             })}
@@ -211,9 +418,10 @@ function SafeTable({
                 <td className="px-3 py-2.5">Total</td>
                 {columnKeys.slice(1).map((k) => (
                   <td key={String(k)} className="px-3 py-2.5">
-                    {typeof safeVal(totalRow, k) === 'number' ? safeVal(totalRow, k) : (Number(safeVal(totalRow, k)) || 0)}
+                    {typeof safeVal(totalRow, k) === 'number' ? safeVal(totalRow, k) : Number(safeVal(totalRow, k)) || 0}
                   </td>
                 ))}
+                {showTargetCol && <td className="px-3 py-2.5" />}
               </tr>
             )}
           </tbody>
@@ -223,16 +431,26 @@ function SafeTable({
   )
 }
 
+// ---------------------------------------------------------------------------
+// BackendNotImplemented
+// ---------------------------------------------------------------------------
+
 function BackendNotImplemented() {
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
       <p className="font-medium">Backend not implemented yet</p>
       <p className="mt-1 text-sm">
-        See <code className="rounded bg-amber-200 px-1 dark:bg-amber-800">docs/ADMIN_RECRUITER_PERFORMANCE_APIS.md</code> for the API specification.
+        See{' '}
+        <code className="rounded bg-amber-200 px-1 dark:bg-amber-800">docs/ADMIN_RECRUITER_PERFORMANCE_APIS.md</code>{' '}
+        for the API specification.
       </p>
     </div>
   )
 }
+
+// ---------------------------------------------------------------------------
+// SearchableRecruiterDropdown
+// ---------------------------------------------------------------------------
 
 type RecruiterOption = { id: string; name: string }
 
@@ -322,9 +540,464 @@ function SearchableRecruiterDropdown({
   )
 }
 
+// ---------------------------------------------------------------------------
+// Targets Modal
+// ---------------------------------------------------------------------------
+
+function TargetsModal({
+  rows,
+  targets,
+  onSave,
+  onClose,
+}: {
+  rows: object[]
+  targets: Record<string, number>
+  onSave: (t: Record<string, number>) => void
+  onClose: () => void
+}) {
+  const [local, setLocal] = useState<Record<string, number>>({ ...targets })
+
+  const recruiters = useMemo(() => {
+    const safe = Array.isArray(rows)
+      ? rows.filter((r): r is Record<string, unknown> => r != null && typeof r === 'object')
+      : []
+    return safe
+      .filter((r) => {
+        const name = String(safeVal(r, 'recruiter_name'))
+        const id = String(safeVal(r, 'recruiter_id'))
+        return name && name !== 'Total' && id && id.trim() !== ''
+      })
+      .map((r) => ({
+        id: String(safeVal(r, 'recruiter_id')),
+        name: String(safeVal(r, 'recruiter_name')),
+      }))
+  }, [rows])
+
+  const handleChange = (id: string, val: string) => {
+    const n = parseInt(val, 10)
+    setLocal((prev) => {
+      if (!val || isNaN(n)) {
+        const next = { ...prev }
+        delete next[id]
+        return next
+      }
+      return { ...prev, [id]: n }
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+          <h3 className="font-semibold text-gray-900 dark:text-white">Set Daily Targets (Attempts)</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="max-h-80 overflow-y-auto p-4 space-y-3">
+          {recruiters.length === 0 && (
+            <p className="text-sm text-gray-500">Load DOD report first to see recruiters.</p>
+          )}
+          {recruiters.map((r) => (
+            <div key={r.id} className="flex items-center gap-3">
+              <span className="flex-1 text-sm text-gray-800 dark:text-gray-200">{r.name}</span>
+              <input
+                type="number"
+                min={0}
+                value={local[r.id] ?? local[r.name] ?? ''}
+                onChange={(e) => {
+                  handleChange(r.id, e.target.value)
+                  handleChange(r.name, e.target.value)
+                }}
+                placeholder="—"
+                className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-1.5 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onSave(local)
+              onClose()
+            }}
+            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// NegativeFunnelImproved
+// ---------------------------------------------------------------------------
+
+const REMARK_BAR_COLORS = [
+  '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6',
+  '#8b5cf6', '#ec4899', '#14b8a6', '#f59e0b', '#6366f1',
+]
+
+interface RemarkRow {
+  remark: string
+  total: number
+  by_job_role?: { job_role_name: string; count: number }[]
+}
+
+function NegativeFunnelImproved({ data }: { data: RecruiterPerformanceNegativeFunnelResponse }) {
+  const [jobRoleFilter, setJobRoleFilter] = useState<string>('All')
+
+  const remarks = useMemo((): RemarkRow[] => {
+    if (!Array.isArray(data.remarks)) return []
+    return [...data.remarks]
+      .filter((r): r is NegativeFunnelRemark => r != null && typeof r === 'object')
+      .map((r): RemarkRow => ({ remark: r.remark, total: r.total, by_job_role: r.by_job_role }))
+      .sort((a, b) => (b.total ?? 0) - (a.total ?? 0))
+  }, [data.remarks])
+
+  const jobRoles = useMemo(() => {
+    const totalsByJobRole = Array.isArray(data.totals_by_job_role) ? data.totals_by_job_role : []
+    return totalsByJobRole
+      .map((r) => (r != null && typeof r === 'object' ? (r as { job_role_name?: string }).job_role_name : null))
+      .filter((n): n is string => n != null && n !== '')
+  }, [data.totals_by_job_role])
+
+  const grandTotal = data.grand_total ?? 0
+
+  // KPI items
+  const mostCommon = remarks[0]?.remark ?? '—'
+  const uniqueReasons = remarks.length
+  const topAffectedRole = useMemo(() => {
+    const totalsByJobRole = Array.isArray(data.totals_by_job_role) ? data.totals_by_job_role : []
+    if (!totalsByJobRole.length) return '—'
+    const sorted = [...totalsByJobRole].sort((a, b) => {
+      const at = (a as { total?: number; count?: number }).total ?? (a as { count?: number }).count ?? 0
+      const bt = (b as { total?: number; count?: number }).total ?? (b as { count?: number }).count ?? 0
+      return bt - at
+    })
+    return (sorted[0] as { job_role_name?: string }).job_role_name ?? '—'
+  }, [data.totals_by_job_role])
+
+  // Bar chart data
+  const barData = useMemo(
+    () =>
+      remarks.slice(0, 12).map((r) => ({
+        name: (r.remark ?? '').slice(0, 20),
+        value: r.total ?? 0,
+        pct: pct(r.total ?? 0, grandTotal),
+      })),
+    [remarks, grandTotal]
+  )
+
+  // Table rows with optional job-role filter
+  const tableRemarks = useMemo(() => {
+    if (jobRoleFilter === 'All') return remarks
+    return remarks.map((r) => {
+      const byRole = Array.isArray(r.by_job_role)
+        ? r.by_job_role.find((x) => x.job_role_name === jobRoleFilter)
+        : null
+      return { ...r, filteredCount: byRole?.count ?? 0 }
+    })
+  }, [remarks, jobRoleFilter])
+
+  const remarkPctColor = (p: number) => {
+    if (p > 15) return 'text-red-600 font-semibold'
+    if (p >= 5) return 'text-amber-600 font-medium'
+    return 'text-green-600'
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* KPI mini-cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { label: 'Grand Total', value: grandTotal },
+          { label: 'Most Common Reason', value: mostCommon },
+          { label: 'Unique Reasons', value: uniqueReasons },
+          { label: 'Top Job Role Affected', value: topAffectedRole },
+        ].map(({ label, value }) => (
+          <div key={label} className="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-3 shadow-sm dark:border-gray-600 dark:from-gray-800 dark:to-gray-800">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</p>
+            <p className="mt-1 text-base font-bold text-gray-900 dark:text-white truncate" title={String(value)}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Top 3 pill badges */}
+      {remarks.length > 0 && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Top Reasons:</span>
+          {remarks.slice(0, 3).map((r, i) => (
+            <span
+              key={i}
+              className="rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+            >
+              #{i + 1} {r.remark} ({pct(r.total, grandTotal)}%)
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Horizontal bar chart */}
+      {barData.length > 0 && (
+        <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <h4 className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-200">Remarks Distribution</h4>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barData} layout="vertical" margin={{ top: 4, right: 40, left: 0, bottom: 4 }}>
+                <XAxis type="number" tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 10 }} />
+                <Tooltip
+                  formatter={(value: number, _name: string, props: { payload?: { pct?: number } }) => [
+                    `${value} (${props.payload?.pct ?? 0}%)`,
+                    'Count',
+                  ]}
+                />
+                <Bar dataKey="value" name="Count" radius={4}>
+                  {barData.map((_, i) => (
+                    <Cell key={i} fill={REMARK_BAR_COLORS[i % REMARK_BAR_COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Job role filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Filter by Job Role:</label>
+        <select
+          value={jobRoleFilter}
+          onChange={(e) => setJobRoleFilter(e.target.value)}
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+        >
+          <option value="All">All</option>
+          {jobRoles.map((jr) => (
+            <option key={jr} value={jr}>{jr}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Detailed table */}
+      <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+        <div className="border-b border-gray-200 px-4 py-2 dark:border-gray-700">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+            Not Interested Remarks{data.date ? ` — ${data.date}` : data.month ? ` — ${data.month}` : ''}
+            {jobRoleFilter !== 'All' ? ` (${jobRoleFilter})` : ''}
+          </h3>
+        </div>
+        <div className="max-h-[360px] overflow-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-gray-700">
+              <tr className="border-b-2 border-slate-200 dark:border-gray-600">
+                <th className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Remark</th>
+                <th className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">
+                  {jobRoleFilter === 'All' ? 'Total' : jobRoleFilter}
+                </th>
+                <th className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">% of Total</th>
+                <th className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Relative</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tableRemarks.map((r, idx) => {
+                const count = jobRoleFilter === 'All' ? r.total : (r as RemarkRow & { filteredCount?: number }).filteredCount ?? 0
+                const p = pct(count, grandTotal)
+                const barWidth = grandTotal > 0 ? Math.round((count / grandTotal) * 100) : 0
+                const isEven = idx % 2 === 0
+                return (
+                  <tr
+                    key={idx}
+                    className={`border-b border-gray-100 dark:border-gray-700 hover:bg-indigo-50/60 dark:hover:bg-indigo-900/20 ${isEven ? 'bg-white dark:bg-gray-800' : 'bg-slate-50/80 dark:bg-gray-700/40'}`}
+                  >
+                    <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-200">{r.remark}</td>
+                    <td className="px-3 py-2.5 font-bold text-gray-900 dark:text-white">{count}</td>
+                    <td className={`px-3 py-2.5 ${remarkPctColor(p)}`}>{fmtPct(p)}</td>
+                    <td className="px-3 py-2.5 w-32">
+                      <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-600">
+                        <div
+                          className="h-2 rounded-full bg-indigo-500"
+                          style={{ width: `${barWidth}%` }}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+              <tr className="border-t-2 border-gray-300 bg-amber-100/70 font-semibold text-gray-900 dark:border-gray-600 dark:bg-amber-900/20 dark:text-amber-100">
+                <td className="px-3 py-2.5">Total</td>
+                <td className="px-3 py-2.5">{grandTotal}</td>
+                <td className="px-3 py-2.5">100%</td>
+                <td className="px-3 py-2.5" />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Column definitions
+// ---------------------------------------------------------------------------
+
+const DOD_COLUMNS = [
+  'recruiter_name',
+  'assigned',
+  'attempt',
+  'connected',
+  'interested',
+  'not_relevant',
+  'not_interested',
+  'interview_sched',
+  'sched_next_day',
+  'today_selection',
+  'rejected',
+  'today_joining',
+  'interview_done',
+  'interview_pending',
+]
+const DOD_LABELS = [
+  'Recruiter',
+  'Assigned',
+  'Attempt',
+  'Connected',
+  'Interested',
+  'Not Relevant',
+  'Not Interested',
+  'Interview Sched',
+  'Sched Next Day',
+  'Today Selection',
+  'Rejected',
+  'Today Joining',
+  'Interview Done',
+  'Interview Pending',
+]
+
+const MTD_COLUMNS = [
+  'recruiter_name',
+  'assigned',
+  'attempt',
+  'connected',
+  'interested',
+  'interview_sched',
+  'sched_next_day',
+  'selection',
+  'total_joining',
+  'yet_to_join',
+  'backout',
+  'hold',
+]
+const MTD_LABELS = [
+  'Recruiter',
+  'Assigned',
+  'Attempt',
+  'Connected',
+  'Interested',
+  'Interview Sched',
+  'Sched Next Day',
+  'Selection',
+  'Total Joining',
+  'Yet To Join',
+  'Backout',
+  'Hold',
+]
+
+const COMPANY_COLUMNS = [
+  'company_name',
+  'current_openings',
+  'total_screened',
+  'interview_scheduled',
+  'interview_done',
+  'interview_pending',
+  'rejected',
+  'selected',
+  'joined',
+  'hold',
+  'yet_to_join',
+  'backout',
+]
+const COMPANY_LABELS = [
+  'Company',
+  'Current Openings',
+  'Total Screened',
+  'Interview Scheduled',
+  'Interview Done',
+  'Interview Pending',
+  'Rejected',
+  'Selected',
+  'Joined',
+  'Hold',
+  'Yet To Join',
+  'Backout',
+]
+
+const INTERVIEW_STATUS_COLUMNS = [
+  'company_name',
+  'int_sched',
+  'int_done',
+  'inter_pending',
+  'selected',
+  'joined',
+  'on_hold',
+  'yet_to_join',
+  'backout',
+]
+const INTERVIEW_STATUS_LABELS = [
+  'Company',
+  'Int Sched',
+  'Int Done',
+  'Inter Pending',
+  'Selected',
+  'Joined',
+  'On Hold',
+  'Yet To Join',
+  'Backout',
+]
+
+const DOD_METRICS = [
+  { key: 'attempt', label: 'Attempts' },
+  { key: 'connected', label: 'Connected' },
+  { key: 'interested', label: 'Interested' },
+  { key: 'interview_sched', label: 'Interviews' },
+  { key: 'interview_done', label: 'Int Done' },
+  { key: 'today_selection', label: 'Selected' },
+]
+
+const MTD_METRICS = [
+  { key: 'attempt', label: 'Attempts' },
+  { key: 'connected', label: 'Connected' },
+  { key: 'interested', label: 'Interested' },
+  { key: 'interview_sched', label: 'Interviews' },
+  { key: 'selection', label: 'Selected' },
+  { key: 'total_joining', label: 'Joined' },
+]
+
+const TARGETS_LS_KEY = 'admin_perf_targets'
+
+// ---------------------------------------------------------------------------
+// Main Page
+// ---------------------------------------------------------------------------
+
 export default function AdminRecruiterPerformancePage() {
   const [tab, setTab] = useState<TabId>('dod')
   const [dod, setDod] = useState<RecruiterPerformanceDODResponse | null | undefined>(undefined)
+  const [dodPrev, setDodPrev] = useState<RecruiterPerformanceDODResponse | null | undefined>(undefined)
   const [mtd, setMtd] = useState<RecruiterPerformanceMTDResponse | null | undefined>(undefined)
   const [companyWise, setCompanyWise] = useState<RecruiterPerformanceCompanyWiseResponse | null | undefined>(undefined)
   const [negativeFunnel, setNegativeFunnel] = useState<RecruiterPerformanceNegativeFunnelResponse | null | undefined>(undefined)
@@ -336,20 +1009,45 @@ export default function AdminRecruiterPerformancePage() {
   const [individualRecruiterId, setIndividualRecruiterId] = useState('')
   const [individualPeriod, setIndividualPeriod] = useState<'dod' | 'mtd'>('mtd')
   const [individualLoading, setIndividualLoading] = useState(false)
+  const [targets, setTargets] = useState<Record<string, number>>({})
+  const [showTargetsModal, setShowTargetsModal] = useState(false)
+
+  // Load targets from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(TARGETS_LS_KEY)
+      if (raw) setTargets(JSON.parse(raw))
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const saveTargets = useCallback((t: Record<string, number>) => {
+    setTargets(t)
+    try {
+      localStorage.setItem(TARGETS_LS_KEY, JSON.stringify(t))
+    } catch {
+      // ignore
+    }
+  }, [])
 
   useEffect(() => {
     if (!dodDate) setDodDate(new Date().toISOString().slice(0, 10))
     if (!mtdMonth) setMtdMonth(new Date().toISOString().slice(0, 7))
-    // Intentionally run once on mount to set initial date/month
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // DOD + prev-week DOD
   useEffect(() => {
     if (!dodDate) return
     setLoading(true)
     getRecruiterPerformanceDOD({ date: dodDate })
       .then(setDod)
       .finally(() => setLoading(false))
+
+    const prevDate = new Date(dodDate)
+    prevDate.setDate(prevDate.getDate() - 7)
+    getRecruiterPerformanceDOD({ date: prevDate.toISOString().slice(0, 10) }).then(setDodPrev)
   }, [dodDate])
 
   useEffect(() => {
@@ -392,116 +1090,69 @@ export default function AdminRecruiterPerformancePage() {
 
   const notImplemented = (data: unknown) => data === null
 
-  const DOD_COLUMNS = [
-    'recruiter_name',
-    'assigned',
-    'attempt',
-    'connected',
-    'interested',
-    'not_relevant',
-    'not_interested',
-    'interview_sched',
-    'sched_next_day',
-    'today_selection',
-    'rejected',
-    'today_joining',
-    'interview_done',
-    'interview_pending',
-  ]
-  const DOD_LABELS = [
-    'Recruiter',
-    'Assigned',
-    'Attempt',
-    'Connected',
-    'Interested',
-    'Not Relevant',
-    'Not Interested',
-    'Interview Sched',
-    'Sched Next Day',
-    'Today Selection',
-    'Rejected',
-    'Today Joining',
-    'Interview Done',
-    'Interview Pending',
-  ]
-  const MTD_COLUMNS = [
-    'recruiter_name',
-    'assigned',
-    'attempt',
-    'connected',
-    'interested',
-    'interview_sched',
-    'sched_next_day',
-    'selection',
-    'total_joining',
-    'yet_to_join',
-    'backout',
-    'hold',
-  ]
-  const MTD_LABELS = [
-    'Recruiter',
-    'Assigned',
-    'Attempt',
-    'Connected',
-    'Interested',
-    'Interview Sched',
-    'Sched Next Day',
-    'Selection',
-    'Total Joining',
-    'Yet To Join',
-    'Backout',
-    'Hold',
-  ]
-  const COMPANY_COLUMNS = [
-    'company_name',
-    'current_openings',
-    'total_screened',
-    'interview_scheduled',
-    'interview_done',
-    'interview_pending',
-    'rejected',
-    'selected',
-    'joined',
-    'hold',
-    'yet_to_join',
-    'backout',
-  ]
-  const COMPANY_LABELS = [
-    'Company',
-    'Current Openings',
-    'Total Screened',
-    'Interview Scheduled',
-    'Interview Done',
-    'Interview Pending',
-    'Rejected',
-    'Selected',
-    'Joined',
-    'Hold',
-    'Yet To Join',
-    'Backout',
-  ]
-  const INTERVIEW_STATUS_COLUMNS = [
-    'company_name',
-    'int_sched',
-    'int_done',
-    'inter_pending',
-    'selected',
-    'joined',
-    'on_hold',
-    'yet_to_join',
-    'backout',
-  ]
-  const INTERVIEW_STATUS_LABELS = [
-    'Company',
-    'Int Sched',
-    'Int Done',
-    'Inter Pending',
-    'Selected',
-    'Joined',
-    'On Hold',
-    'Yet To Join',
-    'Backout',
-  ]
+  // ---------------------------------------------------------------------------
+  // DOD helpers
+  // ---------------------------------------------------------------------------
+  const dodDerivedData = useMemo(() => {
+    if (dod == null || typeof dod !== 'object') return null
+    const raw = Array.isArray(dod.rows) ? dod.rows : []
+    const totalBackend = dod.total != null && typeof dod.total === 'object' ? dod.total : null
+    const totalFromRows = raw.find(
+      (r) => r != null && (safeVal(r, 'recruiter_name') === 'Total' || r.recruiter_id == null)
+    )
+    const dataRows = totalFromRows ? raw.filter((r) => r !== totalFromRows) : raw
+    const bodyRows = dataRows.length > 0 ? dataRows : totalFromRows ? [totalFromRows] : []
+    const footerTotal = dataRows.length > 0 ? (totalBackend ?? totalFromRows ?? null) : null
+    const tot = footerTotal ?? totalFromRows
+    return { raw, dataRows, bodyRows, footerTotal, tot }
+  }, [dod])
+
+  const dodPrevTot = useMemo(() => {
+    if (dodPrev == null || typeof dodPrev !== 'object') return null
+    const raw = Array.isArray(dodPrev.rows) ? dodPrev.rows : []
+    const totalBackend = dodPrev.total != null && typeof dodPrev.total === 'object' ? dodPrev.total : null
+    const totalFromRows = raw.find(
+      (r) => r != null && (safeVal(r, 'recruiter_name') === 'Total' || r.recruiter_id == null)
+    )
+    return totalBackend ?? totalFromRows ?? null
+  }, [dodPrev])
+
+  // ---------------------------------------------------------------------------
+  // MTD helpers
+  // ---------------------------------------------------------------------------
+  const mtdDerivedData = useMemo(() => {
+    if (mtd == null || typeof mtd !== 'object') return null
+    const raw = Array.isArray(mtd.rows) ? mtd.rows : []
+    const totalBackend = mtd.total != null && typeof mtd.total === 'object' ? mtd.total : null
+    const totalFromRows = raw.find(
+      (r) => r != null && (safeVal(r, 'recruiter_name') === 'Total' || r.recruiter_id == null)
+    )
+    const dataRows = totalFromRows ? raw.filter((r) => r !== totalFromRows) : raw
+    const bodyRows = dataRows.length > 0 ? dataRows : totalFromRows ? [totalFromRows] : []
+    const footerTotal = dataRows.length > 0 ? (totalBackend ?? totalFromRows ?? null) : null
+    const tot = footerTotal ?? totalFromRows
+    return { raw, dataRows, bodyRows, footerTotal, tot }
+  }, [mtd])
+
+  // ---------------------------------------------------------------------------
+  // Individual recruiter options
+  // ---------------------------------------------------------------------------
+  const recruiterOptions: RecruiterOption[] = useMemo(() => {
+    const rawRows = ([...(dod?.rows ?? []), ...(mtd?.rows ?? [])]) as {
+      recruiter_id?: string
+      recruiter_name?: string
+    }[]
+    const seen = new Set<string>()
+    return rawRows
+      .filter((r) => r != null && r.recruiter_name !== 'Total' && r.recruiter_id != null && String(r.recruiter_id).trim() !== '')
+      .map((r) => ({ id: String(r.recruiter_id), name: String(r.recruiter_name ?? r.recruiter_id) }))
+      .filter((o) => {
+        if (seen.has(o.id)) return false
+        seen.add(o.id)
+        return true
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+  }, [dod, mtd])
 
   return (
     <div className="space-y-6">
@@ -509,7 +1160,17 @@ export default function AdminRecruiterPerformancePage() {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Recruiter Performance Dashboard</h1>
       </div>
 
-      {/* Dashboard filter bar */}
+      {/* Targets modal */}
+      {showTargetsModal && dodDerivedData && (
+        <TargetsModal
+          rows={dodDerivedData.bodyRows}
+          targets={targets}
+          onSave={saveTargets}
+          onClose={() => setShowTargetsModal(false)}
+        />
+      )}
+
+      {/* Filter bar */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
         <div className="flex flex-wrap items-center gap-4">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Date</label>
@@ -529,7 +1190,7 @@ export default function AdminRecruiterPerformancePage() {
         </div>
       </div>
 
-      {/* Report type selector */}
+      {/* Tab selector */}
       <div className="flex flex-wrap gap-2">
         {(
           [
@@ -545,49 +1206,90 @@ export default function AdminRecruiterPerformancePage() {
             key={id}
             type="button"
             onClick={() => setTab(id)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium ${tab === id ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
+            className={`rounded-lg px-4 py-2 text-sm font-medium ${
+              tab === id
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+            }`}
           >
             {label}
           </button>
         ))}
       </div>
 
-      {/* Content cards */}
+      {/* Content */}
       <div className="min-h-[200px] rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        {/* ---------------------------------------------------------------- DOD */}
         {tab === 'dod' && (
           <div className="space-y-4">
             {loading && dod === undefined && <p className="text-gray-500">Loading…</p>}
             {!loading && notImplemented(dod) && <BackendNotImplemented />}
-            {!loading && dod != null && typeof dod === 'object' && (() => {
-              const raw = Array.isArray(dod.rows) ? dod.rows : []
-              const totalBackend = dod.total != null && typeof dod.total === 'object' ? dod.total : null
-              const totalFromRows = raw.find((r) => r != null && (safeVal(r, 'recruiter_name') === 'Total' || r.recruiter_id == null))
-              const dataRows = totalFromRows ? raw.filter((r) => r !== totalFromRows) : raw
-              const bodyRows = dataRows.length > 0 ? dataRows : (totalFromRows ? [totalFromRows] : [])
-              const footerTotal = dataRows.length > 0 ? (totalBackend ?? totalFromRows ?? null) : null
-              const tot = footerTotal ?? totalFromRows
-              const kpiItems = tot && typeof tot === 'object' ? [
-                { label: 'Assigned', value: safeVal(tot, 'assigned') },
-                { label: 'Connected', value: safeVal(tot, 'connected') },
-                { label: 'Interview Sched', value: safeVal(tot, 'interview_sched') },
-                { label: 'Today Joining', value: safeVal(tot, 'today_joining') },
-                { label: 'Interview Done', value: safeVal(tot, 'interview_done') },
-                { label: 'Interview Pending', value: safeVal(tot, 'interview_pending') },
-              ] : []
+            {!loading && dodDerivedData && (() => {
+              const { dataRows, bodyRows, footerTotal, tot } = dodDerivedData
+              const kpiItems: KPIItem[] = tot && typeof tot === 'object'
+                ? [
+                    { label: 'Assigned', value: safeVal(tot, 'assigned') },
+                    { label: 'Attempt', value: safeVal(tot, 'attempt') },
+                    { label: 'Connected', value: safeVal(tot, 'connected') },
+                    { label: 'Interested', value: safeVal(tot, 'interested') },
+                    { label: 'Interview Sched', value: safeVal(tot, 'interview_sched') },
+                    { label: 'Today Joining', value: safeVal(tot, 'today_joining') },
+                    { label: 'Interview Done', value: safeVal(tot, 'interview_done') },
+                    { label: 'Interview Pending', value: safeVal(tot, 'interview_pending') },
+                  ]
+                : []
+
+              const prevKpiItems: KPIItem[] | undefined = dodPrevTot && typeof dodPrevTot === 'object'
+                ? [
+                    { label: 'Assigned', value: safeVal(dodPrevTot, 'assigned') },
+                    { label: 'Attempt', value: safeVal(dodPrevTot, 'attempt') },
+                    { label: 'Connected', value: safeVal(dodPrevTot, 'connected') },
+                    { label: 'Interested', value: safeVal(dodPrevTot, 'interested') },
+                    { label: 'Interview Sched', value: safeVal(dodPrevTot, 'interview_sched') },
+                    { label: 'Today Joining', value: safeVal(dodPrevTot, 'today_joining') },
+                    { label: 'Interview Done', value: safeVal(dodPrevTot, 'interview_done') },
+                    { label: 'Interview Pending', value: safeVal(dodPrevTot, 'interview_pending') },
+                  ]
+                : undefined
+
+              const funnelSteps: FunnelStep[] = tot && typeof tot === 'object'
+                ? [
+                    { from: 'Attempt', to: 'Connected', fromVal: Number(safeVal(tot, 'attempt')) || 0, toVal: Number(safeVal(tot, 'connected')) || 0 },
+                    { from: 'Connected', to: 'Interested', fromVal: Number(safeVal(tot, 'connected')) || 0, toVal: Number(safeVal(tot, 'interested')) || 0 },
+                    { from: 'Interested', to: 'Int Sched', fromVal: Number(safeVal(tot, 'interested')) || 0, toVal: Number(safeVal(tot, 'interview_sched')) || 0 },
+                    { from: 'Int Sched', to: 'Int Done', fromVal: Number(safeVal(tot, 'interview_sched')) || 0, toVal: Number(safeVal(tot, 'interview_done')) || 0 },
+                    { from: 'Int Done', to: 'Selected', fromVal: Number(safeVal(tot, 'interview_done')) || 0, toVal: Number(safeVal(tot, 'today_selection')) || 0 },
+                    { from: 'Selected', to: 'Joined', fromVal: Number(safeVal(tot, 'today_selection')) || 0, toVal: Number(safeVal(tot, 'today_joining')) || 0 },
+                  ]
+                : []
+
               return (
                 <div className="space-y-4">
-                  <KPICards items={kpiItems} />
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200">
+                      Day Report (DOD) — {dod?.date ?? dodDate}
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setShowTargetsModal(true)}
+                      className="flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                    >
+                      🎯 Set Targets
+                    </button>
+                  </div>
+                  <KPICards items={kpiItems} prevItems={prevKpiItems} />
+                  {funnelSteps.length > 0 && <ConversionFunnel steps={funnelSteps} />}
                   {dataRows.length > 0 && (
                     <ReportBarChart
                       data={dataRows}
                       nameKey="recruiter_name"
-                      valueKey="interview_sched"
-                      valueLabel="Interview Sched"
+                      metrics={DOD_METRICS}
+                      defaultMetric="attempt"
                       maxBars={12}
                     />
                   )}
                   <SafeTable
-                    title={`Day Report (DOD) — ${dod.date ?? dodDate}`}
+                    title={`Day Report (DOD) — ${dod?.date ?? dodDate}`}
                     rows={bodyRows}
                     columnKeys={DOD_COLUMNS}
                     columnLabels={DOD_LABELS}
@@ -596,6 +1298,16 @@ export default function AdminRecruiterPerformancePage() {
                     searchPlaceholder="Search recruiter…"
                     searchColumnKey="recruiter_name"
                     numericColumnKeys={DOD_COLUMNS.slice(1)}
+                    targets={targets}
+                    targetColumn="attempt"
+                    onExport={() =>
+                      exportToXlsx(
+                        `DOD_${dod?.date ?? dodDate}`,
+                        DOD_LABELS,
+                        bodyRows,
+                        DOD_COLUMNS
+                      )
+                    }
                   />
                 </div>
               )
@@ -603,40 +1315,51 @@ export default function AdminRecruiterPerformancePage() {
           </div>
         )}
 
+        {/* ---------------------------------------------------------------- MTD */}
         {tab === 'mtd' && (
           <div className="space-y-4">
             {loading && mtd === undefined && <p className="text-gray-500">Loading…</p>}
             {!loading && notImplemented(mtd) && <BackendNotImplemented />}
-            {!loading && mtd != null && typeof mtd === 'object' && (() => {
-              const raw = Array.isArray(mtd.rows) ? mtd.rows : []
-              const totalBackend = mtd.total != null && typeof mtd.total === 'object' ? mtd.total : null
-              const totalFromRows = raw.find((r) => r != null && (safeVal(r, 'recruiter_name') === 'Total' || r.recruiter_id == null))
-              const dataRows = totalFromRows ? raw.filter((r) => r !== totalFromRows) : raw
-              const bodyRows = dataRows.length > 0 ? dataRows : (totalFromRows ? [totalFromRows] : [])
-              const footerTotal = dataRows.length > 0 ? (totalBackend ?? totalFromRows ?? null) : null
-              const tot = footerTotal ?? totalFromRows
-              const kpiItems = tot && typeof tot === 'object' ? [
-                { label: 'Assigned', value: safeVal(tot, 'assigned') },
-                { label: 'Connected', value: safeVal(tot, 'connected') },
-                { label: 'Interview Sched', value: safeVal(tot, 'interview_sched') },
-                { label: 'Selection', value: safeVal(tot, 'selection') },
-                { label: 'Total Joining', value: safeVal(tot, 'total_joining') },
-                { label: 'Hold', value: safeVal(tot, 'hold') },
-              ] : []
+            {!loading && mtdDerivedData && (() => {
+              const { dataRows, bodyRows, footerTotal, tot } = mtdDerivedData
+              const kpiItems: KPIItem[] = tot && typeof tot === 'object'
+                ? [
+                    { label: 'Assigned', value: safeVal(tot, 'assigned') },
+                    { label: 'Attempt', value: safeVal(tot, 'attempt') },
+                    { label: 'Connected', value: safeVal(tot, 'connected') },
+                    { label: 'Interested', value: safeVal(tot, 'interested') },
+                    { label: 'Interview Sched', value: safeVal(tot, 'interview_sched') },
+                    { label: 'Selection', value: safeVal(tot, 'selection') },
+                    { label: 'Total Joining', value: safeVal(tot, 'total_joining') },
+                    { label: 'Hold', value: safeVal(tot, 'hold') },
+                  ]
+                : []
+
+              const funnelSteps: FunnelStep[] = tot && typeof tot === 'object'
+                ? [
+                    { from: 'Attempt', to: 'Connected', fromVal: Number(safeVal(tot, 'attempt')) || 0, toVal: Number(safeVal(tot, 'connected')) || 0 },
+                    { from: 'Connected', to: 'Interested', fromVal: Number(safeVal(tot, 'connected')) || 0, toVal: Number(safeVal(tot, 'interested')) || 0 },
+                    { from: 'Interested', to: 'Int Sched', fromVal: Number(safeVal(tot, 'interested')) || 0, toVal: Number(safeVal(tot, 'interview_sched')) || 0 },
+                    { from: 'Int Sched', to: 'Selected', fromVal: Number(safeVal(tot, 'interview_sched')) || 0, toVal: Number(safeVal(tot, 'selection')) || 0 },
+                    { from: 'Selected', to: 'Joined', fromVal: Number(safeVal(tot, 'selection')) || 0, toVal: Number(safeVal(tot, 'total_joining')) || 0 },
+                  ]
+                : []
+
               return (
                 <div className="space-y-4">
                   <KPICards items={kpiItems} />
+                  {funnelSteps.length > 0 && <ConversionFunnel steps={funnelSteps} />}
                   {dataRows.length > 0 && (
                     <ReportBarChart
                       data={dataRows}
                       nameKey="recruiter_name"
-                      valueKey="total_joining"
-                      valueLabel="Total Joining"
+                      metrics={MTD_METRICS}
+                      defaultMetric="attempt"
                       maxBars={12}
                     />
                   )}
                   <SafeTable
-                    title={`Month Report (MTD) — ${mtd.month ?? mtdMonth}`}
+                    title={`Month Report (MTD) — ${mtd?.month ?? mtdMonth}`}
                     rows={bodyRows}
                     columnKeys={MTD_COLUMNS}
                     columnLabels={MTD_LABELS}
@@ -645,6 +1368,14 @@ export default function AdminRecruiterPerformancePage() {
                     searchPlaceholder="Search recruiter…"
                     searchColumnKey="recruiter_name"
                     numericColumnKeys={MTD_COLUMNS.slice(1)}
+                    onExport={() =>
+                      exportToXlsx(
+                        `MTD_${mtd?.month ?? mtdMonth}`,
+                        MTD_LABELS,
+                        bodyRows,
+                        MTD_COLUMNS
+                      )
+                    }
                   />
                 </div>
               )
@@ -652,34 +1383,22 @@ export default function AdminRecruiterPerformancePage() {
           </div>
         )}
 
+        {/* ------------------------------------------------------------ Individual */}
         {tab === 'individual' && (
           <div className="space-y-4">
-            {(() => {
-              const rawRows = (dod?.rows ?? mtd?.rows ?? []) as { recruiter_id?: string; recruiter_name?: string }[]
-              const recruiterOptions: RecruiterOption[] = rawRows
-                .filter((r) => r != null && r.recruiter_name !== 'Total' && r.recruiter_id != null && String(r.recruiter_id).trim() !== '')
-                .map((r) => ({ id: String(r.recruiter_id), name: String(r.recruiter_name ?? r.recruiter_id) }))
-              const seen = new Set<string>()
-              const unique = recruiterOptions.filter((o) => {
-                if (seen.has(o.id)) return false
-                seen.add(o.id)
-                return true
-              })
-              const sorted = [...unique].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
-              return (
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Recruiter</label>
-                  <SearchableRecruiterDropdown
-                    options={sorted}
-                    value={individualRecruiterId}
-                    onChange={setIndividualRecruiterId}
-                    placeholder={sorted.length === 0 ? 'Load Day/Month report for list…' : 'Search recruiter by name…'}
-                    disabled={individualLoading}
-                  />
-                  {sorted.length === 0 && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Load Day or Month report first to populate recruiters.</span>
-                  )}
-                  <select
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Recruiter</label>
+              <SearchableRecruiterDropdown
+                options={recruiterOptions}
+                value={individualRecruiterId}
+                onChange={setIndividualRecruiterId}
+                placeholder={recruiterOptions.length === 0 ? 'Load Day/Month report for list…' : 'Search recruiter by name…'}
+                disabled={individualLoading}
+              />
+              {recruiterOptions.length === 0 && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">Load Day or Month report first to populate recruiters.</span>
+              )}
+              <select
                 value={individualPeriod}
                 onChange={(e) => setIndividualPeriod(e.target.value as 'dod' | 'mtd')}
                 className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
@@ -695,9 +1414,7 @@ export default function AdminRecruiterPerformancePage() {
               >
                 {individualLoading ? 'Loading…' : 'Load'}
               </button>
-                </div>
-              )
-            })()}
+            </div>
             {individualLoading && <p className="text-gray-500">Loading…</p>}
             {!individualLoading && notImplemented(individual) && <BackendNotImplemented />}
             {!individualLoading && individual != null && typeof individual === 'object' && (
@@ -718,6 +1435,14 @@ export default function AdminRecruiterPerformancePage() {
                   columnKeys={MTD_COLUMNS}
                   columnLabels={MTD_LABELS}
                   numericColumnKeys={MTD_COLUMNS.slice(1)}
+                  onExport={() =>
+                    exportToXlsx(
+                      `Individual_${individualRecruiterId}_${individual.month ?? individual.date ?? ''}`,
+                      MTD_LABELS,
+                      [individual],
+                      MTD_COLUMNS
+                    )
+                  }
                 />
               </div>
             )}
@@ -727,6 +1452,7 @@ export default function AdminRecruiterPerformancePage() {
           </div>
         )}
 
+        {/* --------------------------------------------------------- Company-wise */}
         {tab === 'company' && (
           <div className="space-y-4">
             {loading && companyWise === undefined && <p className="text-gray-500">Loading…</p>}
@@ -734,14 +1460,16 @@ export default function AdminRecruiterPerformancePage() {
             {!loading && companyWise != null && typeof companyWise === 'object' && (() => {
               const tot = companyWise.total != null && typeof companyWise.total === 'object' ? companyWise.total : null
               const rows = Array.isArray(companyWise.rows) ? companyWise.rows : []
-              const kpiItems = tot ? [
-                { label: 'Total Screened', value: safeVal(tot, 'total_screened') },
-                { label: 'Interview Scheduled', value: safeVal(tot, 'interview_scheduled') },
-                { label: 'Selected', value: safeVal(tot, 'selected') },
-                { label: 'Joined', value: safeVal(tot, 'joined') },
-                { label: 'Hold', value: safeVal(tot, 'hold') },
-                { label: 'Backout', value: safeVal(tot, 'backout') },
-              ] : []
+              const kpiItems: KPIItem[] = tot
+                ? [
+                    { label: 'Total Screened', value: safeVal(tot, 'total_screened') },
+                    { label: 'Interview Scheduled', value: safeVal(tot, 'interview_scheduled') },
+                    { label: 'Selected', value: safeVal(tot, 'selected') },
+                    { label: 'Joined', value: safeVal(tot, 'joined') },
+                    { label: 'Hold', value: safeVal(tot, 'hold') },
+                    { label: 'Backout', value: safeVal(tot, 'backout') },
+                  ]
+                : []
               return (
                 <div className="space-y-4">
                   <KPICards items={kpiItems} />
@@ -749,8 +1477,13 @@ export default function AdminRecruiterPerformancePage() {
                     <ReportBarChart
                       data={rows}
                       nameKey="company_name"
-                      valueKey="joined"
-                      valueLabel="Joined"
+                      metrics={[
+                        { key: 'joined', label: 'Joined' },
+                        { key: 'selected', label: 'Selected' },
+                        { key: 'total_screened', label: 'Screened' },
+                        { key: 'interview_scheduled', label: 'Int Sched' },
+                      ]}
+                      defaultMetric="joined"
                       maxBars={10}
                     />
                   )}
@@ -763,6 +1496,9 @@ export default function AdminRecruiterPerformancePage() {
                     searchPlaceholder="Search company…"
                     searchColumnKey="company_name"
                     numericColumnKeys={COMPANY_COLUMNS.slice(1)}
+                    onExport={() =>
+                      exportToXlsx(`CompanyWise_${mtdMonth}`, COMPANY_LABELS, rows, COMPANY_COLUMNS)
+                    }
                   />
                 </div>
               )
@@ -770,24 +1506,18 @@ export default function AdminRecruiterPerformancePage() {
           </div>
         )}
 
+        {/* -------------------------------------------------------- Negative Funnel */}
         {tab === 'negative' && (
           <div className="space-y-4">
             {loading && negativeFunnel === undefined && <p className="text-gray-500">Loading…</p>}
             {!loading && notImplemented(negativeFunnel) && <BackendNotImplemented />}
             {!loading && negativeFunnel != null && typeof negativeFunnel === 'object' && (
-              <>
-                <KPICards
-                  items={[
-                    { label: 'Grand Total (Not Interested)', value: negativeFunnel.grand_total ?? 0 },
-                    { label: 'Remark Categories', value: Array.isArray(negativeFunnel.remarks) ? negativeFunnel.remarks.length : 0 },
-                  ]}
-                />
-                <NegativeFunnelCard data={negativeFunnel} />
-              </>
+              <NegativeFunnelImproved data={negativeFunnel} />
             )}
           </div>
         )}
 
+        {/* ------------------------------------------------------ Interview Status */}
         {tab === 'interview-status' && (
           <div className="space-y-4">
             {loading && interviewStatus === undefined && <p className="text-gray-500">Loading…</p>}
@@ -795,14 +1525,16 @@ export default function AdminRecruiterPerformancePage() {
             {!loading && interviewStatus != null && typeof interviewStatus === 'object' && (() => {
               const tot = interviewStatus.total != null && typeof interviewStatus.total === 'object' ? interviewStatus.total : null
               const rows = Array.isArray(interviewStatus.rows) ? interviewStatus.rows : []
-              const kpiItems = tot ? [
-                { label: 'Int Sched', value: safeVal(tot, 'int_sched') },
-                { label: 'Int Done', value: safeVal(tot, 'int_done') },
-                { label: 'Inter Pending', value: safeVal(tot, 'inter_pending') },
-                { label: 'Selected', value: safeVal(tot, 'selected') },
-                { label: 'Joined', value: safeVal(tot, 'joined') },
-                { label: 'Backout', value: safeVal(tot, 'backout') },
-              ] : []
+              const kpiItems: KPIItem[] = tot
+                ? [
+                    { label: 'Int Sched', value: safeVal(tot, 'int_sched') },
+                    { label: 'Int Done', value: safeVal(tot, 'int_done') },
+                    { label: 'Inter Pending', value: safeVal(tot, 'inter_pending') },
+                    { label: 'Selected', value: safeVal(tot, 'selected') },
+                    { label: 'Joined', value: safeVal(tot, 'joined') },
+                    { label: 'Backout', value: safeVal(tot, 'backout') },
+                  ]
+                : []
               return (
                 <div className="space-y-4">
                   <KPICards items={kpiItems} />
@@ -810,8 +1542,13 @@ export default function AdminRecruiterPerformancePage() {
                     <ReportBarChart
                       data={rows}
                       nameKey="company_name"
-                      valueKey="joined"
-                      valueLabel="Joined"
+                      metrics={[
+                        { key: 'joined', label: 'Joined' },
+                        { key: 'selected', label: 'Selected' },
+                        { key: 'int_sched', label: 'Int Sched' },
+                        { key: 'int_done', label: 'Int Done' },
+                      ]}
+                      defaultMetric="joined"
                       maxBars={10}
                     />
                   )}
@@ -824,6 +1561,14 @@ export default function AdminRecruiterPerformancePage() {
                     searchPlaceholder="Search company…"
                     searchColumnKey="company_name"
                     numericColumnKeys={INTERVIEW_STATUS_COLUMNS.slice(1)}
+                    onExport={() =>
+                      exportToXlsx(
+                        `InterviewStatus_${interviewStatus.date ?? dodDate}`,
+                        INTERVIEW_STATUS_LABELS,
+                        rows,
+                        INTERVIEW_STATUS_COLUMNS
+                      )
+                    }
                   />
                 </div>
               )
@@ -831,74 +1576,6 @@ export default function AdminRecruiterPerformancePage() {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function NegativeFunnelCard({ data }: { data: RecruiterPerformanceNegativeFunnelResponse }) {
-  const totalsByJobRole = Array.isArray(data.totals_by_job_role) ? data.totals_by_job_role : []
-  const remarks = Array.isArray(data.remarks) ? data.remarks : []
-  const jobRoles = totalsByJobRole
-    .map((r) => (r != null && typeof r === 'object' ? (r as { job_role_name?: string }).job_role_name : null))
-    .filter((n): n is string => n != null && n !== '')
-
-  return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-      <div className="border-b border-gray-200 px-4 py-2 dark:border-gray-700">
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-          Not Interested Remarks {data.date ? `— ${data.date}` : data.month ? `— ${data.month}` : ''}
-        </h3>
-      </div>
-      <table className="w-full border-collapse text-sm">
-        <thead>
-          <tr className="border-b-2 border-slate-200 bg-slate-100 dark:border-gray-600 dark:bg-gray-700">
-            <th className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Remark</th>
-            {jobRoles.map((name, i) => (
-              <th key={String(name) || i} className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">
-                {name}
-              </th>
-            ))}
-            <th className="px-3 py-2 text-left font-medium text-gray-700 dark:text-gray-300">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {remarks.map((r, idx) => {
-            const byJobRole = Array.isArray(r.by_job_role) ? r.by_job_role : []
-            const byRole: Record<string, number> = {}
-            for (const x of byJobRole) {
-              if (x != null && typeof x === 'object' && 'job_role_name' in x && 'count' in x) {
-                byRole[String((x as { job_role_name: string }).job_role_name)] = Number((x as { count: number }).count) || 0
-              }
-            }
-            const isEven = idx % 2 === 0
-            const rowBg = isEven ? 'bg-white dark:bg-gray-800' : 'bg-slate-50/80 dark:bg-gray-700/40'
-            return (
-              <tr key={idx} className={`border-b border-gray-100 dark:border-gray-700 transition-colors hover:bg-indigo-50/60 dark:hover:bg-indigo-900/20 ${rowBg}`}>
-                <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-200">{safeVal(r, 'remark')}</td>
-                {jobRoles.map((name, i) => (
-                  <td key={String(name) || i} className="px-3 py-2.5 text-gray-800 dark:text-gray-200">
-                    {byRole[name] ?? 0}
-                  </td>
-                ))}
-                <td className="px-3 py-2.5 font-medium text-gray-800 dark:text-gray-200">{safeVal(r, 'total')}</td>
-              </tr>
-            )
-          })}
-          <tr className="border-t-2 border-gray-300 bg-amber-100/70 font-semibold text-gray-900 dark:border-gray-600 dark:bg-amber-900/20 dark:text-amber-100">
-            <td className="px-3 py-2.5">Total</td>
-            {jobRoles.map((name, i) => {
-              const row = totalsByJobRole.find((r) => r != null && (r as { job_role_name?: string }).job_role_name === name)
-              const val = row != null && typeof row === 'object' ? ((row as { total?: number }).total ?? (row as { count?: number }).count ?? 0) : 0
-              return (
-                <td key={String(name) || i} className="px-3 py-2.5">
-                  {val}
-                </td>
-              )
-            })}
-            <td className="px-3 py-2.5">{data.grand_total ?? 0}</td>
-          </tr>
-        </tbody>
-      </table>
     </div>
   )
 }
