@@ -10,6 +10,7 @@ const navigation = [
   { name: 'Candidates', href: '/candidates', icon: '👥' },
   { name: 'Sourcing', href: '/sourcing', icon: '🔍' },
   { name: 'Pending Applications', href: '/pending-applications', icon: '⏳' },
+  { name: 'Follow-ups', href: '/follow-ups', icon: '🔔' },
   { name: 'Reports', href: '/reports', icon: '📈' },
 ]
 
