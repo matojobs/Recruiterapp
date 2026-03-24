@@ -67,14 +67,14 @@ function KPICards({
   items: KPIItem[]
   prevItems?: KPIItem[]
 }) {
-  if (!items.length) return null
-
   const prevMap = useMemo(() => {
     if (!prevItems) return null
     const m: Record<string, string | number> = {}
     for (const pi of prevItems) m[pi.label] = pi.value
     return m
   }, [prevItems])
+
+  if (!items.length) return null
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
