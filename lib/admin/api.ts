@@ -462,7 +462,7 @@ export async function getAdminSourcingApplications(params?: {
       typeof window !== 'undefined'
         ? process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
         : process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
-    const { data } = await axios.get(`${baseURL}/recruiter/applications`, {
+    const { data } = await axios.get(`${baseURL}/admin/sourcing/applications`, {
       params,
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
