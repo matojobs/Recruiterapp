@@ -232,8 +232,10 @@ export interface RecruiterPerformanceRowMTD {
   attempt: number
   connected: number
   interested: number
+  not_interested: number
   interview_sched: number
   sched_next_day: number
+  rejected: number
   selection: number
   total_joining: number
   yet_to_join: number
@@ -264,6 +266,7 @@ export interface CompanyWiseRow {
   rejected: number
   selected: number
   joined: number
+  not_joined: number
   hold: number
   yet_to_join: number
   backout: number

@@ -932,21 +932,21 @@ const COMPANY_COLUMNS = [
   'rejected',
   'selected',
   'joined',
-  'hold',
+  'not_joined',
   'yet_to_join',
   'backout',
 ]
 const COMPANY_LABELS = [
   'Company',
-  'Current Openings',
+  'Active Roles',
   'Total Screened',
-  'Interview Scheduled',
-  'Interview Done',
-  'Interview Pending',
+  'Int Scheduled',
+  'Int Done',
+  'Int Pending',
   'Rejected',
   'Selected',
   'Joined',
-  'Hold',
+  'Not Joined',
   'Yet To Join',
   'Backout',
 ]
@@ -1468,12 +1468,15 @@ export default function AdminRecruiterPerformancePage() {
               const rows = Array.isArray(companyWise.rows) ? companyWise.rows : []
               const kpiItems: KPIItem[] = tot
                 ? [
-                    { label: 'Total Screened', value: safeVal(tot, 'total_screened') },
-                    { label: 'Interview Scheduled', value: safeVal(tot, 'interview_scheduled') },
+                    { label: 'Active Roles (Demand)', value: safeVal(tot, 'current_openings') },
+                    { label: 'Total Screened (Supply)', value: safeVal(tot, 'total_screened') },
+                    { label: 'Int Scheduled', value: safeVal(tot, 'interview_scheduled') },
+                    { label: 'Int Done', value: safeVal(tot, 'interview_done') },
                     { label: 'Selected', value: safeVal(tot, 'selected') },
                     { label: 'Joined', value: safeVal(tot, 'joined') },
-                    { label: 'Hold', value: safeVal(tot, 'hold') },
+                    { label: 'Yet To Join', value: safeVal(tot, 'yet_to_join') },
                     { label: 'Backout', value: safeVal(tot, 'backout') },
+                    { label: 'Rejected', value: safeVal(tot, 'rejected') },
                   ]
                 : []
               return (
@@ -1488,6 +1491,10 @@ export default function AdminRecruiterPerformancePage() {
                         { key: 'selected', label: 'Selected' },
                         { key: 'total_screened', label: 'Screened' },
                         { key: 'interview_scheduled', label: 'Int Sched' },
+                        { key: 'interview_done', label: 'Int Done' },
+                        { key: 'rejected', label: 'Rejected' },
+                        { key: 'backout', label: 'Backout' },
+                        { key: 'current_openings', label: 'Active Roles' },
                       ]}
                       defaultMetric="joined"
                       maxBars={10}
