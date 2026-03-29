@@ -54,6 +54,7 @@ export default function EditCandidateModal({
         selection_status: application.selection_status || '',
         joining_status: application.joining_status || '',
         joining_date: application.joining_date || '',
+        expected_joining_date: application.expected_joining_date || '',
         backout_date: application.backout_date || '',
         backout_reason: application.backout_reason || '',
         hiring_manager_feedback: application.hiring_manager_feedback || '',
@@ -222,17 +223,37 @@ export default function EditCandidateModal({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Interview Outcome</label>
-                  <Select
-                    value={formData.interview_status || ''}
-                    onChange={(e) => setFormData({ ...formData, interview_status: e.target.value as any })}
-                    options={[
-                      { value: '', label: 'Select outcome...' },
-                      { value: 'Scheduled', label: 'Scheduled (yet to happen)' },
-                      { value: 'Done', label: 'Done' },
-                      { value: 'Not Attended', label: 'Not Attended' },
-                      { value: 'Rejected', label: 'Rejected' },
-                    ]}
-                  />
+                  {(() => {
+                    const today = new Date().toISOString().split('T')[0]
+                    const interviewPassed = formData.interview_date ? formData.interview_date <= today : false
+                    return (
+                      <>
+                        <Select
+                          value={formData.interview_status || ''}
+                          onChange={(e) => setFormData({ ...formData, interview_status: e.target.value as any })}
+                          options={
+                            interviewPassed
+                              ? [
+                                  { value: '', label: 'Select outcome...' },
+                                  { value: 'Scheduled', label: 'Scheduled (yet to happen)' },
+                                  { value: 'Done', label: 'Done' },
+                                  { value: 'Not Attended', label: 'Not Attended' },
+                                  { value: 'Rejected', label: 'Rejected' },
+                                ]
+                              : [
+                                  { value: '', label: 'Select outcome...' },
+                                  { value: 'Scheduled', label: 'Scheduled (yet to happen)' },
+                                ]
+                          }
+                        />
+                        {!interviewPassed && formData.interview_date && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            Outcome can only be set on or after the interview date.
+                          </p>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Turnup</label>
@@ -282,6 +303,16 @@ export default function EditCandidateModal({
                 ]}
               />
             </div>
+            {formData.selection_status === 'Selected' && formData.joining_status !== 'Joined' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Expected Joining Date</label>
+                <Input
+                  type="date"
+                  value={formData.expected_joining_date || ''}
+                  onChange={(e) => setFormData({ ...formData, expected_joining_date: e.target.value })}
+                />
+              </div>
+            )}
             {formData.joining_status === 'Joined' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Joining Date</label>

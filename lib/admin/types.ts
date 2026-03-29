@@ -208,7 +208,7 @@ export interface RecruiterPerformanceRowDOD {
   attempt: number
   connected: number
   interested: number
-  not_relevant: number
+  call_back_later: number
   not_interested: number
   interview_sched: number
   sched_next_day: number

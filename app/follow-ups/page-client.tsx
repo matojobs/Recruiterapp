@@ -7,6 +7,7 @@ import { getCurrentUser } from '@/lib/auth-helper'
 import type { Application } from '@/types/database'
 import { formatDate } from '@/lib/utils'
 import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
+import EditCandidateModal from '@/components/candidates/EditCandidateModal'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const todayStr = () => new Date().toISOString().slice(0, 10)
@@ -152,9 +153,11 @@ function LogCallForm({
 function FollowUpCard({
   app,
   onUpdate,
+  onEdit,
 }: {
   app: Application
   onUpdate: (id: string, updates: Partial<Application>) => Promise<void>
+  onEdit: (app: Application) => void
 }) {
   const [showLogCall, setShowLogCall] = useState(false)
   const badge = statusBadge(app)
@@ -188,6 +191,9 @@ function FollowUpCard({
             {app.followup_date && (
               <span className="text-xs text-gray-400">Follow-up: {formatDate(app.followup_date)}</span>
             )}
+            {app.expected_joining_date && (
+              <span className="text-xs text-violet-600 font-medium">Exp. Joining: {formatDate(app.expected_joining_date)}</span>
+            )}
           </div>
 
           {app.notes && (
@@ -207,12 +213,12 @@ function FollowUpCard({
           >
             Log Call
           </button>
-          <Link
-            href={`/candidates?highlight=${app.id}`}
-            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2.5 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors"
+          <button
+            onClick={() => onEdit(app)}
+            className="text-xs px-2.5 py-1.5 rounded-lg font-medium bg-gray-100 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
           >
-            Open
-          </Link>
+            Edit
+          </button>
         </div>
       </div>
 
@@ -234,9 +240,11 @@ function FollowUpCard({
 function FollowUpSection({
   section,
   onUpdate,
+  onEdit,
 }: {
   section: Section
   onUpdate: (id: string, updates: Partial<Application>) => Promise<void>
+  onEdit: (app: Application) => void
 }) {
   const [open, setOpen] = useState(true)
 
@@ -262,7 +270,7 @@ function FollowUpSection({
       {open && (
         <div className="space-y-2 mt-1">
           {section.apps.map(app => (
-            <FollowUpCard key={app.id} app={app} onUpdate={onUpdate} />
+            <FollowUpCard key={app.id} app={app} onUpdate={onUpdate} onEdit={onEdit} />
           ))}
         </div>
       )}
@@ -275,6 +283,7 @@ export default function FollowUpsPageClient() {
   const [apps, setApps] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [editingApp, setEditingApp] = useState<Application | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -294,7 +303,12 @@ export default function FollowUpsPageClient() {
 
   const handleUpdate = useCallback(async (id: string, updates: Partial<Application>) => {
     await updateApplication(id, updates as any)
-    // Re-fetch to reflect changes
+    await load()
+  }, [load])
+
+  const handleEditSave = useCallback(async (id: string, updates: Partial<Application>) => {
+    await updateApplication(id, updates as any)
+    setEditingApp(null)
     await load()
   }, [load])
 
@@ -393,9 +407,16 @@ export default function FollowUpsPageClient() {
       {/* Sections */}
       <div className="space-y-6">
         {sections.map(section => (
-          <FollowUpSection key={section.id} section={section} onUpdate={handleUpdate} />
+          <FollowUpSection key={section.id} section={section} onUpdate={handleUpdate} onEdit={setEditingApp} />
         ))}
       </div>
+
+      <EditCandidateModal
+        isOpen={editingApp !== null}
+        application={editingApp}
+        onClose={() => setEditingApp(null)}
+        onSave={handleEditSave}
+      />
 
       {totalCount === 0 && (
         <div className="text-center py-16">

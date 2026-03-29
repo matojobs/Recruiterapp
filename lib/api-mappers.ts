@@ -103,6 +103,7 @@ interface BackendApplication {
   selection_status: string | null
   joining_status: string | null
   joining_date?: string | null
+  expected_joining_date?: string | null
   backout_date?: string | null
   backout_reason?: string | null
   hiring_manager_feedback?: string | null
@@ -307,6 +308,7 @@ export function mapApplication(backend: BackendApplication): Application {
     selection_status: backend.selection_status as Application['selection_status'],
     joining_status: backend.joining_status as Application['joining_status'],
     joining_date: backend.joining_date ?? null,
+    expected_joining_date: backend.expected_joining_date ?? null,
     backout_date: backend.backout_date ?? null,
     backout_reason: backend.backout_reason ?? null,
     hiring_manager_feedback: backend.hiring_manager_feedback ?? null,

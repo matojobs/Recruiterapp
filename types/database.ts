@@ -55,6 +55,7 @@ export interface Application {
   selection_status: 'Selected' | 'Not Selected' | 'Pending' | null;
   joining_status: 'Joined' | 'Not Joined' | 'Pending' | 'Backed Out' | null;
   joining_date: string | null;
+  expected_joining_date: string | null;
   backout_date: string | null;
   backout_reason: string | null;
   hiring_manager_feedback: string | null;
