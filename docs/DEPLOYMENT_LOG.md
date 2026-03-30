@@ -21,6 +21,22 @@ Each entry should include:
 
 ## Entries
 
+### 2026-03-30 — Data accuracy fixes + expected_joining_date + follow-up edit + interview date lock
+
+- **Environment:** production
+- **Platform:** Vercel (frontend auto-deploy) + manual SSH build on server (backend)
+- **Branch/Commit:** frontend `main` @ `7a249c8` · backend `feature/sourcing-datalake` @ `197c8a9`
+- **Summary:**
+  - **Admin Recruiter Performance — data accuracy overhaul:** Fixed all DOD/MTD/company-wise metrics that were using `updated_at` as date anchor instead of actual event fields (`interview_date`, `call_date`, etc.). Fixed: `call_back_later` (was counting same as `not_interested`), `today_selection`, `rejected`, `backout=0` (COALESCE fix), `current_openings` (was hardcoded 0). Added `rejected` + `not_interested` columns to MTD. Added total row + `date` field to interview-status-company-wise response. Added total row to company-wise.
+  - **Interview outcome date lock:** `EditCandidateModal` now blocks Done/Not Attended/Rejected options until interview date has passed. Shows amber hint when locked.
+  - **New field `expected_joining_date`:** Added to DB (`ALTER TABLE`), backend entity/DTO/service, frontend types/mappers/modal. Visible in edit form when candidate is Selected and not yet Joined. Shown on follow-up cards.
+  - **Follow-ups page inline edit:** Added Edit button per card opening `EditCandidateModal` directly — recruiters no longer need to navigate away.
+- **Status:** success ✅
+- **DB migration:** `ALTER TABLE sourcing.applications ADD COLUMN IF NOT EXISTS expected_joining_date DATE;` — run on server via SSH before container restart.
+- **Notes:** Backend built directly on server (`/tmp/backend-build`) via `git pull` + `docker build` since Docker Desktop was not running locally. SSH via cloudflared tunnel `ssh.jobsmato.com:2222`, key at `E:\git ssh key\id_ed25519_github`, user `jobsmato`.
+
+---
+
 ### 2026-03-23 — Admin dashboard overhaul + UI improvements + admin candidates page
 
 - **Environment:** production
