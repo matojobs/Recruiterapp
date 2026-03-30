@@ -4,6 +4,7 @@ import type { DashboardStats } from '@/types/database'
 
 interface StatsCardsProps {
   stats: DashboardStats
+  periodLabel?: string
 }
 
 // SVG icons as inline components for clean rendering
@@ -60,7 +61,8 @@ const Icons = {
   ),
 }
 
-export default function StatsCards({ stats }: StatsCardsProps) {
+export default function StatsCards({ stats, periodLabel }: StatsCardsProps) {
+  const pl = periodLabel ? ` (${periodLabel})` : ''
   const cards = [
     {
       title: 'Total Sourced',
@@ -68,7 +70,6 @@ export default function StatsCards({ stats }: StatsCardsProps) {
       icon: Icons.sourced,
       accent: 'border-blue-500',
       iconBg: 'bg-blue-50 text-blue-600',
-      group: 'top',
     },
     {
       title: 'Calls Done',
@@ -76,7 +77,6 @@ export default function StatsCards({ stats }: StatsCardsProps) {
       icon: Icons.calls,
       accent: 'border-cyan-500',
       iconBg: 'bg-cyan-50 text-cyan-600',
-      group: 'top',
     },
     {
       title: 'Connected',
@@ -84,7 +84,6 @@ export default function StatsCards({ stats }: StatsCardsProps) {
       icon: Icons.connected,
       accent: 'border-emerald-500',
       iconBg: 'bg-emerald-50 text-emerald-600',
-      group: 'top',
     },
     {
       title: 'Interested',
@@ -92,7 +91,6 @@ export default function StatsCards({ stats }: StatsCardsProps) {
       icon: Icons.interested,
       accent: 'border-teal-500',
       iconBg: 'bg-teal-50 text-teal-600',
-      group: 'top',
     },
     {
       title: 'Not Interested',
@@ -100,39 +98,34 @@ export default function StatsCards({ stats }: StatsCardsProps) {
       icon: Icons.notInterested,
       accent: 'border-red-400',
       iconBg: 'bg-red-50 text-red-500',
-      group: 'top',
     },
     {
-      title: 'Interviews Scheduled',
+      title: 'Int. Scheduled',
       value: stats.interviewsScheduled,
       icon: Icons.calendar,
       accent: 'border-yellow-500',
       iconBg: 'bg-yellow-50 text-yellow-600',
-      group: 'bottom',
     },
     {
-      title: 'Interviews Done',
+      title: 'Int. Done',
       value: stats.interviewsDoneToday,
       icon: Icons.check,
       accent: 'border-orange-500',
       iconBg: 'bg-orange-50 text-orange-600',
-      group: 'bottom',
     },
     {
-      title: 'Selected (Month)',
+      title: `Selected${pl}`,
       value: stats.selectedThisMonth,
       icon: Icons.target,
       accent: 'border-purple-500',
       iconBg: 'bg-purple-50 text-purple-600',
-      group: 'bottom',
     },
     {
-      title: 'Joined (Month)',
+      title: `Joined${pl}`,
       value: stats.joinedThisMonth,
       icon: Icons.joined,
       accent: 'border-pink-500',
       iconBg: 'bg-pink-50 text-pink-600',
-      group: 'bottom',
     },
     {
       title: 'Pending Joining',
@@ -140,7 +133,6 @@ export default function StatsCards({ stats }: StatsCardsProps) {
       icon: Icons.pending,
       accent: 'border-indigo-500',
       iconBg: 'bg-indigo-50 text-indigo-600',
-      group: 'bottom',
     },
   ]
 

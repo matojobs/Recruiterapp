@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
-import { getDashboardStats, getPipelineFlow, getApplications } from '@/lib/data'
+import { getApplications } from '@/lib/data'
 import { getCurrentUser } from '@/lib/auth-helper'
 import type { Application, PipelineFlow, DashboardStats } from '@/types/database'
 import { EMPTY_PIPELINE_FLOW } from '@/types/database'
@@ -11,27 +11,96 @@ import Button from '@/components/ui/Button'
 import * as XLSX from 'xlsx'
 
 // ── Types ────────────────────────────────────────────────────────────────────
-type DatePreset = 'all' | 'this_month' | 'this_week'
+type DatePreset = 'dod' | 'mtd' | 'all'
 type ReportTab = 'pipeline' | 'performance' | 'company'
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function getDateRange(preset: DatePreset): { date_from?: string; date_to?: string } {
-  const today = new Date()
-  const fmt = (d: Date) => d.toISOString().split('T')[0]
-  if (preset === 'this_month') {
-    return {
-      date_from: fmt(new Date(today.getFullYear(), today.getMonth(), 1)),
-      date_to: fmt(today),
-    }
-  }
-  if (preset === 'this_week') {
-    const start = new Date(today)
-    start.setDate(today.getDate() - today.getDay())
-    return { date_from: fmt(start), date_to: fmt(today) }
-  }
-  return {}
+// ── Period helpers ────────────────────────────────────────────────────────────
+const DATE_PRESETS: { label: string; value: DatePreset }[] = [
+  { label: 'Today (DOD)', value: 'dod' },
+  { label: 'This Month (MTD)', value: 'mtd' },
+  { label: 'All Time', value: 'all' },
+]
+
+function todayStr() { return new Date().toISOString().slice(0, 10) }
+function monthStartStr() { const t = todayStr(); return t.slice(0, 8) + '01' }
+
+function inPeriod(date: string | null | undefined, preset: DatePreset): boolean {
+  if (preset === 'all') return true
+  if (!date) return false
+  const d = date.slice(0, 10)
+  if (preset === 'dod') return d === todayStr()
+  return d >= monthStartStr() && d <= todayStr()
 }
 
+// ── Stats computed from apps ──────────────────────────────────────────────────
+function computeStats(apps: Application[], preset: DatePreset): DashboardStats {
+  const ip = (d: string | null | undefined) => inPeriod(d, preset)
+  const DONE = ['Done', 'Not Attended', 'Rejected']
+  return {
+    totalSourced:        preset === 'all' ? apps.length : apps.filter(a => ip(a.assigned_date)).length,
+    callsDoneToday:      apps.filter(a => ip(a.call_date)).length,
+    connectedToday:      apps.filter(a => ip(a.call_date) && a.call_status === 'Connected').length,
+    interestedToday:     apps.filter(a => ip(a.call_date) && a.interested_status === 'Yes').length,
+    notInterestedToday:  apps.filter(a => ip(a.call_date) && a.interested_status === 'No').length,
+    interviewsDoneToday: apps.filter(a => ip(a.interview_date) && DONE.includes(a.interview_status || '')).length,
+    interviewsScheduled: apps.filter(a => a.interview_scheduled && (a.interview_status == null || a.interview_status === 'Scheduled')).length,
+    selectedThisMonth:   apps.filter(a => ip(a.interview_date) && a.selection_status === 'Selected').length,
+    joinedThisMonth:     apps.filter(a => ip(a.joining_date) && a.joining_status === 'Joined').length,
+    pendingJoining:      apps.filter(a => a.selection_status === 'Selected' && (a.joining_status === 'Pending' || a.joining_status == null)).length,
+  }
+}
+
+// ── Pipeline computed from apps ───────────────────────────────────────────────
+function computeFlow(apps: Application[], preset: DatePreset): PipelineFlow {
+  const ip = (d: string | null | undefined) => inPeriod(d, preset)
+  const DONE = ['Done', 'Not Attended', 'Rejected']
+
+  if (preset === 'all') {
+    return {
+      sourced:                apps.length,
+      callDone:               apps.filter(a => a.call_date != null).length,
+      connected:              apps.filter(a => a.call_status === 'Connected').length,
+      interestPending:        apps.filter(a => a.call_status === 'Connected' && a.interested_status == null).length,
+      interested:             apps.filter(a => a.interested_status === 'Yes').length,
+      callBackLater:          apps.filter(a => a.interested_status === 'Call Back Later').length,
+      notInterested:          apps.filter(a => a.interested_status === 'No').length,
+      interviewScheduled:     apps.filter(a => a.interview_scheduled === true).length,
+      interviewResultPending: apps.filter(a => a.interview_scheduled === true && (a.interview_status == null || a.interview_status === 'Scheduled')).length,
+      interviewDone:          apps.filter(a => DONE.includes(a.interview_status || '')).length,
+      selectionPending:       apps.filter(a => DONE.includes(a.interview_status || '') && (a.selection_status == null || a.selection_status === 'Pending')).length,
+      selected:               apps.filter(a => a.selection_status === 'Selected').length,
+      notSelected:            apps.filter(a => a.selection_status === 'Not Selected').length,
+      joined:                 apps.filter(a => a.joining_status === 'Joined').length,
+      notJoined:              apps.filter(a => a.joining_status === 'Not Joined').length,
+      backedOut:              apps.filter(a => a.joining_status === 'Backed Out').length,
+      pendingJoining:         apps.filter(a => a.selection_status === 'Selected' && (a.joining_status === 'Pending' || a.joining_status == null)).length,
+      followupsDue: 0,
+    }
+  }
+
+  return {
+    sourced:                apps.filter(a => ip(a.assigned_date)).length,
+    callDone:               apps.filter(a => ip(a.call_date)).length,
+    connected:              apps.filter(a => ip(a.call_date) && a.call_status === 'Connected').length,
+    interestPending:        apps.filter(a => ip(a.call_date) && a.call_status === 'Connected' && a.interested_status == null).length,
+    interested:             apps.filter(a => ip(a.call_date) && a.interested_status === 'Yes').length,
+    callBackLater:          apps.filter(a => ip(a.call_date) && a.interested_status === 'Call Back Later').length,
+    notInterested:          apps.filter(a => ip(a.call_date) && a.interested_status === 'No').length,
+    interviewScheduled:     apps.filter(a => ip(a.interview_date)).length,
+    interviewResultPending: apps.filter(a => ip(a.interview_date) && (a.interview_status == null || a.interview_status === 'Scheduled')).length,
+    interviewDone:          apps.filter(a => ip(a.interview_date) && DONE.includes(a.interview_status || '')).length,
+    selectionPending:       apps.filter(a => ip(a.interview_date) && (a.selection_status == null || a.selection_status === 'Pending')).length,
+    selected:               apps.filter(a => ip(a.interview_date) && a.selection_status === 'Selected').length,
+    notSelected:            apps.filter(a => ip(a.interview_date) && a.selection_status === 'Not Selected').length,
+    joined:                 apps.filter(a => ip(a.joining_date) && a.joining_status === 'Joined').length,
+    notJoined:              apps.filter(a => ip(a.joining_date) && a.joining_status === 'Not Joined').length,
+    backedOut:              apps.filter(a => ip(a.joining_date) && a.joining_status === 'Backed Out').length,
+    pendingJoining:         apps.filter(a => a.selection_status === 'Selected' && (a.joining_status === 'Pending' || a.joining_status == null)).length,
+    followupsDue: 0,
+  }
+}
+
+// ── Pipeline stage definitions ────────────────────────────────────────────────
 const PIPELINE_STAGES = [
   { key: 'sourced',                label: 'Sourced',                  color: '#64748b' },
   { key: 'callDone',               label: 'Call Done',                color: '#3b82f6' },
@@ -52,24 +121,8 @@ const PIPELINE_STAGES = [
   { key: 'pendingJoining',         label: 'Pending Joining',          color: '#818cf8' },
 ]
 
-const DATE_PRESETS: { label: string; value: DatePreset }[] = [
-  { label: 'All Time', value: 'all' },
-  { label: 'This Month', value: 'this_month' },
-  { label: 'This Week', value: 'this_week' },
-]
-
 // ── Sub-components ────────────────────────────────────────────────────────────
-function MetricCard({
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  label: string
-  value: string | number
-  sub?: string
-  accent?: string
-}) {
+function MetricCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
   return (
     <div className={`bg-white rounded-xl border border-gray-100 shadow-sm p-5 border-l-4 ${accent || 'border-l-gray-300'}`}>
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide leading-tight">{label}</p>
@@ -90,14 +143,11 @@ function SectionHeader({ title, description }: { title: string; description?: st
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
-  const [tab, setTab] = useState<ReportTab>('pipeline')
-  const [datePreset, setDatePreset] = useState<DatePreset>('this_month')
-  const [recruiterId, setRecruiterId] = useState<string | undefined>()
-  const [flow, setFlow] = useState<PipelineFlow>(EMPTY_PIPELINE_FLOW)
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [applications, setApplications] = useState<Application[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [tab, setTab]                   = useState<ReportTab>('pipeline')
+  const [datePreset, setDatePreset]     = useState<DatePreset>('mtd')
+  const [allApplications, setAllApplications] = useState<Application[]>([])
+  const [loading, setLoading]           = useState(true)
+  const [error, setError]               = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     try {
@@ -105,91 +155,75 @@ export default function ReportsPage() {
       setError(null)
       const user = await getCurrentUser()
       const rid = user?.recruiter_id ? String(user.recruiter_id) : undefined
-      setRecruiterId(rid)
-      const dateRange = getDateRange(datePreset)
-      const [flowData, statsData, appsData] = await Promise.all([
-        getPipelineFlow({ recruiter_id: rid, ...dateRange }),
-        getDashboardStats(rid),
-        getApplications({ recruiter_id: rid, limit: 500 }),
-      ])
-      setFlow(flowData)
-      setStats(statsData)
-      setApplications(appsData)
+      // Load all apps once — period filtering is done client-side
+      const appsData = await getApplications({ recruiter_id: rid, limit: 2000 })
+      setAllApplications(appsData)
     } catch (err) {
       console.error('Error loading reports:', err)
       setError('Failed to load report data. Please try again.')
     } finally {
       setLoading(false)
     }
-  }, [datePreset])
+  }, [])
 
   useEffect(() => { loadData() }, [loadData])
 
-  // ── Computed ─────────────────────────────────────────────────────────────
-  const pipelineChartData = useMemo(() =>
-    PIPELINE_STAGES
-      .filter(s => flow[s.key as keyof PipelineFlow] as number > 0)
-      .map(s => ({
-        name: s.label,
-        value: flow[s.key as keyof PipelineFlow] as number,
-        color: s.color,
-      }))
-  , [flow])
+  // ── Derived state (recomputed on preset change, no extra API call) ─────────
+  const flow  = useMemo(() => computeFlow(allApplications, datePreset),  [allApplications, datePreset])
+  const stats = useMemo(() => computeStats(allApplications, datePreset), [allApplications, datePreset])
 
+  // Company stats — filtered by period using call_date as anchor
   const companyStats = useMemo(() => {
-    const map = new Map<string, {
-      name: string; total: number; connected: number; interested: number
-      interviews: number; selected: number; joined: number
-    }>()
-    applications.forEach((app) => {
+    const ip = (d: string | null | undefined) => inPeriod(d, datePreset)
+    const map = new Map<string, { name: string; total: number; connected: number; interested: number; interviews: number; selected: number; joined: number }>()
+    allApplications.forEach(app => {
+      // Include the row if it has any activity in the period
+      const hasActivity = ip(app.assigned_date) || ip(app.call_date) || ip(app.interview_date) || ip(app.joining_date)
+      if (datePreset !== 'all' && !hasActivity) return
       const name = (app.job_role as any)?.company?.company_name || 'Unknown'
-      if (!map.has(name)) {
-        map.set(name, { name, total: 0, connected: 0, interested: 0, interviews: 0, selected: 0, joined: 0 })
-      }
+      if (!map.has(name)) map.set(name, { name, total: 0, connected: 0, interested: 0, interviews: 0, selected: 0, joined: 0 })
       const s = map.get(name)!
       s.total++
-      if (app.call_status === 'Connected') s.connected++
-      if (app.interested_status === 'Yes') s.interested++
-      if (app.interview_scheduled) s.interviews++
-      if (app.selection_status === 'Selected') s.selected++
-      if (app.joining_status === 'Joined') s.joined++
+      if (ip(app.call_date) && app.call_status === 'Connected') s.connected++
+      if (ip(app.call_date) && app.interested_status === 'Yes') s.interested++
+      if (ip(app.interview_date)) s.interviews++
+      if (ip(app.interview_date) && app.selection_status === 'Selected') s.selected++
+      if (ip(app.joining_date) && app.joining_status === 'Joined') s.joined++
     })
     return Array.from(map.values()).sort((a, b) => b.total - a.total)
-  }, [applications])
+  }, [allApplications, datePreset])
+
+  const pipelineChartData = useMemo(() =>
+    PIPELINE_STAGES
+      .filter(s => (flow[s.key as keyof PipelineFlow] as number) > 0)
+      .map(s => ({ name: s.label, value: flow[s.key as keyof PipelineFlow] as number, color: s.color }))
+  , [flow])
 
   // ── Exports ───────────────────────────────────────────────────────────────
   function exportPipeline() {
     const data = PIPELINE_STAGES.map((s, i) => ({
       Stage: s.label,
       Count: flow[s.key as keyof PipelineFlow],
-      'From Previous (%)': i === 0 ? '100%' : `${calculatePercentage(
-        flow[s.key as keyof PipelineFlow] as number,
-        flow[PIPELINE_STAGES[i - 1].key as keyof PipelineFlow] as number,
-      )}%`,
+      'From Previous (%)': i === 0 ? '100%' : `${calculatePercentage(flow[s.key as keyof PipelineFlow] as number, flow[PIPELINE_STAGES[i - 1].key as keyof PipelineFlow] as number)}%`,
     }))
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Pipeline')
-    XLSX.writeFile(wb, `pipeline_${datePreset}_${new Date().toISOString().split('T')[0]}.xlsx`)
+    XLSX.writeFile(wb, `pipeline_${datePreset}_${todayStr()}.xlsx`)
   }
 
   function exportCompany() {
     const data = companyStats.map(c => ({
-      Company: c.name,
-      Sourced: c.total,
-      Connected: c.connected,
+      Company: c.name, Sourced: c.total, Connected: c.connected,
       'Connected %': `${calculatePercentage(c.connected, c.total)}%`,
-      Interested: c.interested,
-      'Interest %': `${calculatePercentage(c.interested, c.connected)}%`,
-      'Interviews Scheduled': c.interviews,
-      Selected: c.selected,
-      Joined: c.joined,
+      Interested: c.interested, 'Interest %': `${calculatePercentage(c.interested, c.connected)}%`,
+      'Interviews Scheduled': c.interviews, Selected: c.selected, Joined: c.joined,
       'Joining %': `${calculatePercentage(c.joined, c.total)}%`,
     }))
     const ws = XLSX.utils.json_to_sheet(data)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Company Stats')
-    XLSX.writeFile(wb, `company_report_${new Date().toISOString().split('T')[0]}.xlsx`)
+    XLSX.writeFile(wb, `company_report_${todayStr()}.xlsx`)
   }
 
   // ── Loading / Error ───────────────────────────────────────────────────────
@@ -216,9 +250,10 @@ export default function ReportsPage() {
   }
 
   const overallConversion = flow.sourced > 0 ? calculatePercentage(flow.joined, flow.sourced) : 0
-  const connectRate = flow.callDone > 0 ? calculatePercentage(flow.connected, flow.callDone) : 0
+  const connectRate  = flow.callDone  > 0 ? calculatePercentage(flow.connected,  flow.callDone)  : 0
   const interestRate = flow.connected > 0 ? calculatePercentage(flow.interested, flow.connected) : 0
-  const joinRate = flow.selected > 0 ? calculatePercentage(flow.joined, flow.selected) : 0
+  const joinRate     = stats.selectedThisMonth > 0 ? calculatePercentage(stats.joinedThisMonth, stats.selectedThisMonth) : 0
+  const periodLabel  = DATE_PRESETS.find(p => p.value === datePreset)?.label ?? ''
 
   return (
     <div className="space-y-5">
@@ -228,50 +263,38 @@ export default function ReportsPage() {
           <h1 className="text-xl font-bold text-gray-900">Reports</h1>
           <p className="text-sm text-gray-500 mt-0.5">Analyse your recruitment pipeline and performance</p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Date filter */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Period toggle */}
           <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
             {DATE_PRESETS.map(p => (
               <button
                 key={p.value}
                 onClick={() => setDatePreset(p.value)}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                  datePreset === p.value
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                  datePreset === p.value ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 {p.label}
               </button>
             ))}
           </div>
-          {tab === 'pipeline' && (
-            <Button onClick={exportPipeline} variant="outline">
-              Export
-            </Button>
-          )}
-          {tab === 'company' && (
-            <Button onClick={exportCompany} variant="outline">
-              Export
-            </Button>
-          )}
+          {tab === 'pipeline' && <Button onClick={exportPipeline} variant="outline">Export</Button>}
+          {tab === 'company'  && <Button onClick={exportCompany}  variant="outline">Export</Button>}
         </div>
       </div>
 
       {/* ── Tabs ── */}
       <div className="flex border-b border-gray-200">
         {([
-          { key: 'pipeline', label: 'Pipeline Flow' },
+          { key: 'pipeline',    label: 'Pipeline Flow' },
           { key: 'performance', label: 'My Performance' },
-          { key: 'company', label: 'Company-wise' },
+          { key: 'company',     label: 'Company-wise' },
         ] as { key: ReportTab; label: string }[]).map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              tab === t.key
-                ? 'border-primary-600 text-primary-700'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+              tab === t.key ? 'border-primary-600 text-primary-700' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
             {t.label}
@@ -282,31 +305,24 @@ export default function ReportsPage() {
       {/* ── Pipeline Tab ── */}
       {tab === 'pipeline' && (
         <div className="space-y-5">
-          {/* KPI row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <MetricCard label="Total Sourced" value={flow.sourced} sub="All time / filtered" accent="border-l-slate-500" />
-            <MetricCard label="Connect Rate" value={`${connectRate}%`} sub={`${flow.connected} of ${flow.callDone} called`} accent="border-l-cyan-500" />
-            <MetricCard label="Interest Rate" value={`${interestRate}%`} sub={`${flow.interested} of ${flow.connected} connected`} accent="border-l-emerald-500" />
-            <MetricCard label="Joining Rate" value={`${overallConversion}%`} sub={`${flow.joined} joined of ${flow.sourced} sourced`} accent="border-l-pink-500" />
+            <MetricCard label="Total Sourced"  value={flow.sourced}      sub={periodLabel}                                                  accent="border-l-slate-500" />
+            <MetricCard label="Connect Rate"   value={`${connectRate}%`} sub={`${flow.connected} of ${flow.callDone} called`}               accent="border-l-cyan-500" />
+            <MetricCard label="Interest Rate"  value={`${interestRate}%`}sub={`${flow.interested} of ${flow.connected} connected`}          accent="border-l-emerald-500" />
+            <MetricCard label="Joining Rate"   value={`${overallConversion}%`} sub={`${flow.joined} joined of ${flow.sourced} sourced`}     accent="border-l-pink-500" />
           </div>
 
-          {/* Bar chart */}
           {pipelineChartData.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-              <SectionHeader title="Pipeline Breakdown" description="Candidate count at each stage" />
+              <SectionHeader title="Pipeline Breakdown" description={`Candidate count at each stage — ${periodLabel}`} />
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={pipelineChartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} angle={-30} textAnchor="end" height={50} />
                     <YAxis tick={{ fontSize: 11 }} />
-                    <Tooltip
-                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
-                      formatter={(v: number) => [v, 'Candidates']}
-                    />
+                    <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }} formatter={(v: number) => [v, 'Candidates']} />
                     <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                      {pipelineChartData.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
+                      {pipelineChartData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -314,7 +330,6 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {/* Detailed table */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
               <SectionHeader title="Stage-by-stage Breakdown" description="Conversion from one stage to the next" />
@@ -323,7 +338,7 @@ export default function ReportsPage() {
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Stage</th>
+                    <th className="px-5 py-3 text-left   text-xs font-semibold text-gray-500 uppercase tracking-wide">Stage</th>
                     <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Count</th>
                     <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Conv. from Previous</th>
                     <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">Overall %</th>
@@ -339,26 +354,17 @@ export default function ReportsPage() {
                       <tr key={s.key} className="hover:bg-gray-50 transition-colors">
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-2">
-                            <span
-                              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: s.color }}
-                            />
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
                             <span className="font-medium text-gray-800">{s.label}</span>
                           </div>
                         </td>
                         <td className="px-5 py-3 text-center font-bold text-gray-900">{value}</td>
                         <td className="px-5 py-3 text-center">
                           {fromPrev !== null ? (
-                            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                              fromPrev >= 60 ? 'bg-emerald-100 text-emerald-700' :
-                              fromPrev >= 30 ? 'bg-amber-100 text-amber-700' :
-                              'bg-red-100 text-red-600'
-                            }`}>
+                            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${fromPrev >= 60 ? 'bg-emerald-100 text-emerald-700' : fromPrev >= 30 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
                               {fromPrev}%
                             </span>
-                          ) : (
-                            <span className="text-xs text-gray-400">—</span>
-                          )}
+                          ) : <span className="text-xs text-gray-400">—</span>}
                         </td>
                         <td className="px-5 py-3 text-center text-xs text-gray-500">{overall}%</td>
                       </tr>
@@ -372,22 +378,24 @@ export default function ReportsPage() {
       )}
 
       {/* ── My Performance Tab ── */}
-      {tab === 'performance' && stats && (
+      {tab === 'performance' && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            <MetricCard label="Total Sourced" value={stats.totalSourced} sub="Applications created" accent="border-l-slate-500" />
-            <MetricCard label="Total Calls" value={stats.callsDoneToday} sub="Calls attempted" accent="border-l-blue-500" />
-            <MetricCard label="Connected" value={stats.connectedToday} sub="Calls connected" accent="border-l-cyan-500" />
-            <MetricCard label="Interested" value={stats.interestedToday} sub="Candidates interested" accent="border-l-emerald-500" />
-            <MetricCard label="Interviews Scheduled" value={stats.interviewsScheduled} sub="Upcoming interviews" accent="border-l-amber-500" />
-            <MetricCard label="Interviews Done" value={stats.interviewsDoneToday} sub="Interviews conducted" accent="border-l-orange-500" />
-            <MetricCard label="Selected" value={stats.selectedThisMonth} sub="This month" accent="border-l-violet-500" />
-            <MetricCard label="Joined" value={stats.joinedThisMonth} sub="This month" accent="border-l-pink-500" />
+            <MetricCard label="Total Sourced"        value={stats.totalSourced}        sub={`Assigned — ${periodLabel}`}   accent="border-l-slate-500" />
+            <MetricCard label="Calls Done"           value={stats.callsDoneToday}      sub={`Calls — ${periodLabel}`}      accent="border-l-blue-500" />
+            <MetricCard label="Connected"            value={stats.connectedToday}      sub={`Calls connected`}             accent="border-l-cyan-500" />
+            <MetricCard label="Interested"           value={stats.interestedToday}     sub={`Candidates interested`}       accent="border-l-emerald-500" />
+            <MetricCard label="Not Interested"       value={stats.notInterestedToday}  sub={`Candidates not interested`}   accent="border-l-red-400" />
+            <MetricCard label="Int. Scheduled"       value={stats.interviewsScheduled} sub={`Upcoming (all-time)`}         accent="border-l-amber-500" />
+            <MetricCard label="Int. Done"            value={stats.interviewsDoneToday} sub={`Interviews conducted`}        accent="border-l-orange-500" />
+            <MetricCard label="Selected"             value={stats.selectedThisMonth}   sub={`Selected — ${periodLabel}`}   accent="border-l-violet-500" />
+            <MetricCard label="Joined"               value={stats.joinedThisMonth}     sub={`Joined — ${periodLabel}`}     accent="border-l-pink-500" />
+            <MetricCard label="Pending Joining"      value={stats.pendingJoining}      sub={`Selected, not yet joined`}    accent="border-l-indigo-500" />
           </div>
 
           {/* Conversion chain */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-            <SectionHeader title="Conversion Funnel" description="Key conversion rates across your pipeline" />
+            <SectionHeader title="Conversion Funnel" description={`Key conversion rates — ${periodLabel}`} />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2">
               {[
                 {
@@ -404,18 +412,14 @@ export default function ReportsPage() {
                 },
                 {
                   label: 'Selected → Joined',
-                  rate: stats.selectedThisMonth > 0 ? calculatePercentage(stats.joinedThisMonth, stats.selectedThisMonth) : 0,
+                  rate: joinRate,
                   desc: `${stats.joinedThisMonth} of ${stats.selectedThisMonth} joined`,
                   tip: 'Aim for >70%. Low rate = offer/follow-up improvement needed.',
                 },
               ].map(item => (
                 <div key={item.label} className="bg-gray-50 rounded-lg p-4">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{item.label}</p>
-                  <p className={`text-3xl font-bold mt-1 ${
-                    item.rate >= 60 ? 'text-emerald-600' :
-                    item.rate >= 35 ? 'text-amber-600' :
-                    'text-red-500'
-                  }`}>{item.rate}%</p>
+                  <p className={`text-3xl font-bold mt-1 ${item.rate >= 60 ? 'text-emerald-600' : item.rate >= 35 ? 'text-amber-600' : 'text-red-500'}`}>{item.rate}%</p>
                   <p className="text-xs text-gray-500 mt-1">{item.desc}</p>
                   <p className="text-xs text-gray-400 mt-2 italic">{item.tip}</p>
                 </div>
@@ -490,18 +494,18 @@ export default function ReportsPage() {
       {tab === 'company' && (
         <div className="space-y-5">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <MetricCard label="Companies" value={companyStats.length} sub="In your pipeline" accent="border-l-slate-500" />
-            <MetricCard label="Total Applications" value={applications.length} sub="Loaded (up to 500)" accent="border-l-blue-500" />
-            <MetricCard label="Total Selected" value={companyStats.reduce((s, c) => s + c.selected, 0)} sub="Across all companies" accent="border-l-violet-500" />
-            <MetricCard label="Total Joined" value={companyStats.reduce((s, c) => s + c.joined, 0)} sub="Across all companies" accent="border-l-pink-500" />
+            <MetricCard label="Companies"          value={companyStats.length}                               sub={periodLabel}              accent="border-l-slate-500" />
+            <MetricCard label="Total Applications" value={companyStats.reduce((s, c) => s + c.total, 0)}    sub={periodLabel}              accent="border-l-blue-500" />
+            <MetricCard label="Total Selected"     value={companyStats.reduce((s, c) => s + c.selected, 0)} sub={`Across all companies`}   accent="border-l-violet-500" />
+            <MetricCard label="Total Joined"       value={companyStats.reduce((s, c) => s + c.joined, 0)}   sub={`Across all companies`}   accent="border-l-pink-500" />
           </div>
 
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
-              <SectionHeader title="Company-wise Funnel" description="Conversion rates across all companies in your pipeline" />
+              <SectionHeader title="Company-wise Funnel" description={`Conversion rates across all companies — ${periodLabel}`} />
             </div>
             {companyStats.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">No data available</p>
+              <p className="text-sm text-gray-400 text-center py-8">No data for the selected period</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
@@ -527,11 +531,7 @@ export default function ReportsPage() {
                           <td className="px-4 py-3 text-center text-gray-700">{c.selected}</td>
                           <td className="px-4 py-3 text-center text-gray-700">{c.joined}</td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                              joiningPct >= 20 ? 'bg-emerald-100 text-emerald-700' :
-                              joiningPct >= 10 ? 'bg-amber-100 text-amber-700' :
-                              'bg-gray-100 text-gray-500'
-                            }`}>
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${joiningPct >= 20 ? 'bg-emerald-100 text-emerald-700' : joiningPct >= 10 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
                               {joiningPct}%
                             </span>
                           </td>
