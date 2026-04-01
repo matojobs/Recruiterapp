@@ -14,6 +14,7 @@ interface FiltersState {
   interview_status: string
   selection_status: string
   joining_status: string
+  date_field: string
   date_from: string
   date_to: string
 }
@@ -28,9 +29,18 @@ const EMPTY: FiltersState = {
   interview_status: '',
   selection_status: '',
   joining_status: '',
+  date_field: 'assigned_date',
   date_from: '',
   date_to: '',
 }
+
+const DATE_FIELD_OPTIONS = [
+  { value: 'assigned_date', label: 'Assigned Date' },
+  { value: 'call_date',     label: 'Call Date' },
+  { value: 'interview_date',label: 'Interview Date' },
+  { value: 'joining_date',  label: 'Joining Date' },
+  { value: 'followup_date', label: 'Follow-up Date' },
+]
 
 interface FiltersProps {
   companies: Company[]
@@ -74,6 +84,14 @@ function ExportIcon() {
   )
 }
 
+function CalendarIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  )
+}
+
 export default function Filters({ companies, jobRoles, onFilterChange, onSearchChange, onExport, total, loading }: FiltersProps) {
   const [filters, setFilters] = useState<FiltersState>(EMPTY)
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -95,19 +113,22 @@ export default function Filters({ companies, jobRoles, onFilterChange, onSearchC
     onFilterChange({ ...EMPTY, search: undefined } as any)
   }
 
+  // Count active filters (exclude search and date_field default)
   const activeCount = useMemo(() => {
-    const { search: _s, ...rest } = filters
+    const { search: _s, date_field: _df, ...rest } = filters
     return Object.values(rest).filter(Boolean).length
   }, [filters])
 
   const hasAny = activeCount > 0 || filters.search !== ''
+  const hasDateRange = filters.date_from || filters.date_to
+  const dateFieldLabel = DATE_FIELD_OPTIONS.find(o => o.value === filters.date_field)?.label ?? 'Date'
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm mb-4">
       {/* Primary toolbar */}
       <div className="flex items-center gap-2 p-3 flex-wrap">
         {/* Search */}
-        <div className="flex-1 min-w-52 relative">
+        <div className="flex-1 min-w-48 relative">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -184,78 +205,114 @@ export default function Filters({ companies, jobRoles, onFilterChange, onSearchC
 
       {/* Advanced filters panel */}
       {showAdvanced && (
-        <div className="border-t border-gray-100 px-3 py-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          <select
-            value={filters.interested_status}
-            onChange={e => update('interested_status', e.target.value)}
-            className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.interested_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
-          >
-            <option value="">Interested: All</option>
-            <option value="Yes">Interested</option>
-            <option value="No">Not Interested</option>
-            <option value="Call Back Later">Call Back Later</option>
-          </select>
+        <div className="border-t border-gray-100 px-3 py-3 space-y-3">
+          {/* Status filters row */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            <select
+              value={filters.interested_status}
+              onChange={e => update('interested_status', e.target.value)}
+              className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.interested_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
+            >
+              <option value="">Interested: All</option>
+              <option value="Yes">Interested</option>
+              <option value="No">Not Interested</option>
+              <option value="Call Back Later">Call Back Later</option>
+            </select>
 
-          <select
-            value={filters.interview_scheduled}
-            onChange={e => update('interview_scheduled', e.target.value)}
-            className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.interview_scheduled ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
-          >
-            <option value="">Interview: All</option>
-            <option value="Yes">Scheduled</option>
-            <option value="No">Not Scheduled</option>
-          </select>
+            <select
+              value={filters.interview_scheduled}
+              onChange={e => update('interview_scheduled', e.target.value)}
+              className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.interview_scheduled ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
+            >
+              <option value="">Interview: All</option>
+              <option value="Yes">Scheduled</option>
+              <option value="No">Not Scheduled</option>
+            </select>
 
-          <select
-            value={filters.interview_status}
-            onChange={e => update('interview_status', e.target.value)}
-            className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.interview_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
-          >
-            <option value="">Interview Outcome: All</option>
-            <option value="Scheduled">Scheduled</option>
-            <option value="Done">Done</option>
-            <option value="Not Attended">Not Attended</option>
-            <option value="Rejected">Rejected</option>
-          </select>
+            <select
+              value={filters.interview_status}
+              onChange={e => update('interview_status', e.target.value)}
+              className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.interview_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
+            >
+              <option value="">Interview Outcome: All</option>
+              <option value="Scheduled">Scheduled</option>
+              <option value="Done">Done</option>
+              <option value="Not Attended">Not Attended</option>
+              <option value="Rejected">Rejected</option>
+            </select>
 
-          <select
-            value={filters.selection_status}
-            onChange={e => update('selection_status', e.target.value)}
-            className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.selection_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
-          >
-            <option value="">Selection: All</option>
-            <option value="Selected">Selected</option>
-            <option value="Not Selected">Not Selected</option>
-            <option value="Pending">Pending</option>
-          </select>
+            <select
+              value={filters.selection_status}
+              onChange={e => update('selection_status', e.target.value)}
+              className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.selection_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
+            >
+              <option value="">Selection: All</option>
+              <option value="Selected">Selected</option>
+              <option value="Not Selected">Not Selected</option>
+              <option value="Pending">Pending</option>
+            </select>
 
-          <select
-            value={filters.joining_status}
-            onChange={e => update('joining_status', e.target.value)}
-            className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.joining_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
-          >
-            <option value="">Joining: All</option>
-            <option value="Joined">Joined</option>
-            <option value="Not Joined">Not Joined</option>
-            <option value="Pending">Pending</option>
-            <option value="Backed Out">Backed Out</option>
-          </select>
+            <select
+              value={filters.joining_status}
+              onChange={e => update('joining_status', e.target.value)}
+              className={`px-2.5 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.joining_status ? 'border-indigo-400 bg-indigo-50 text-indigo-700 font-semibold' : 'border-gray-200 text-gray-700'}`}
+            >
+              <option value="">Joining: All</option>
+              <option value="Joined">Joined</option>
+              <option value="Not Joined">Not Joined</option>
+              <option value="Pending">Pending</option>
+              <option value="Backed Out">Backed Out</option>
+            </select>
+          </div>
 
-          <div className="flex gap-1.5 col-span-1 sm:col-span-1">
+          {/* Date range row — full width, no overflow */}
+          <div className="flex flex-wrap items-center gap-2 p-2.5 bg-gray-50 rounded-lg border border-gray-100">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
+              <CalendarIcon />
+              <span>Date Range</span>
+            </div>
+
+            {/* Date field type selector */}
+            <select
+              value={filters.date_field}
+              onChange={e => update('date_field', e.target.value)}
+              className={`px-2.5 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 font-medium ${hasDateRange ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-700 bg-white'}`}
+            >
+              {DATE_FIELD_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+
+            <span className="text-xs text-gray-400">from</span>
             <input
               type="date"
               value={filters.date_from}
               onChange={e => update('date_from', e.target.value)}
-              title="From date"
-              className={`w-full px-2 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.date_from ? 'border-indigo-400' : 'border-gray-200'}`}
+              className={`px-2.5 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white ${filters.date_from ? 'border-indigo-400 text-indigo-700' : 'border-gray-200 text-gray-700'}`}
             />
+            <span className="text-xs text-gray-400">to</span>
             <input
               type="date"
               value={filters.date_to}
               onChange={e => update('date_to', e.target.value)}
-              title="To date"
-              className={`w-full px-2 py-2 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 ${filters.date_to ? 'border-indigo-400' : 'border-gray-200'}`}
+              className={`px-2.5 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white ${filters.date_to ? 'border-indigo-400 text-indigo-700' : 'border-gray-200 text-gray-700'}`}
             />
+
+            {hasDateRange && (
+              <button
+                onClick={() => { update('date_from', ''); update('date_to', '') }}
+                className="flex items-center gap-1 px-2 py-1.5 text-xs text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <XIcon />
+                Clear dates
+              </button>
+            )}
+
+            {hasDateRange && (
+              <span className="text-xs text-indigo-600 font-medium ml-auto">
+                Filtering by {dateFieldLabel}
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -266,6 +323,9 @@ export default function Filters({ companies, jobRoles, onFilterChange, onSearchC
           <span className="text-xs text-gray-400">{total.toLocaleString()} candidate{total !== 1 ? 's' : ''}</span>
           {hasAny && (
             <span className="text-xs text-indigo-600 font-medium">· filtered</span>
+          )}
+          {hasDateRange && (
+            <span className="text-xs text-gray-400">· {dateFieldLabel}{filters.date_from ? ` from ${filters.date_from}` : ''}{filters.date_to ? ` to ${filters.date_to}` : ''}</span>
           )}
         </div>
       )}

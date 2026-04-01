@@ -45,6 +45,7 @@ function buildQueryString(filters?: Record<string, unknown>, pagination?: { page
         // Map frontend filter names to backend names
         if (key === 'date_from') params.append('start_date', String(value))
         else if (key === 'date_to') params.append('end_date', String(value))
+        else if (key === 'date_field') params.append('date_field', String(value))
         else if (key === 'interview_scheduled') params.append(key, value === 'Yes' ? 'true' : value === 'No' ? 'false' : String(value))
         else params.append(key, String(value))
       }
