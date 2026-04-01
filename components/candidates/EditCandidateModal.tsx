@@ -10,15 +10,19 @@ import Select from '@/components/ui/Select'
 
 const UNREACHABLE_STATUSES = ['RNR', 'Busy', 'Switched Off', 'Incoming Off', 'Call Back', 'Out of network']
 
+function todayIST(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+}
+
 function addDays(n: number): string {
   const d = new Date()
   d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 }
 
 function shouldAutoSetFollowup(current: string | null | undefined): boolean {
   if (!current) return true
-  return current < new Date().toISOString().slice(0, 10)
+  return current < todayIST()
 }
 
 interface EditCandidateModalProps {

@@ -21,7 +21,7 @@ const DATE_PRESETS: { label: string; value: DatePreset }[] = [
   { label: 'All Time', value: 'all' },
 ]
 
-function todayStr() { return new Date().toISOString().slice(0, 10) }
+function todayStr() { return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) }
 function monthStartStr() { const t = todayStr(); return t.slice(0, 8) + '01' }
 
 function inPeriod(date: string | null | undefined, preset: DatePreset): boolean {

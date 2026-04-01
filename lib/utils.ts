@@ -93,8 +93,8 @@ export function computePipelineFlowFromApplications(applications: Application[])
   }
 }
 
-const todayStr = () => new Date().toISOString().slice(0, 10)
-const thisMonthStart = () => new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)
+const todayStr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+const thisMonthStart = () => todayStr().slice(0, 8) + '01'
 
 /** Compute dashboard stats from applications (single source of truth for dashboard). */
 export function computeDashboardStatsFromApplications(applications: Application[]): DashboardStats {

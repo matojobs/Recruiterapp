@@ -22,7 +22,7 @@ const PERIOD_OPTIONS: { value: Period; label: string }[] = [
   { value: 'all', label: 'All Time' },
 ]
 
-function todayStr() { return new Date().toISOString().slice(0, 10) }
+function todayStr() { return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) }
 function monthStartStr() { const t = todayStr(); return t.slice(0, 8) + '01' }
 
 function inPeriod(date: string | null | undefined, period: Period): boolean {
@@ -104,7 +104,7 @@ function computeFlowFromApps(apps: Application[], period: Period): PipelineFlowT
 
 function computeFollowUpSummary(apps: Application[]) {
   const today = todayStr()
-  const weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
+  const weekEnd = new Date(Date.now() + 7 * 86400000).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
   let overdue = 0, dueToday = 0, noDate = 0
   for (const app of apps) {
     if (isFinalStage(app)) continue

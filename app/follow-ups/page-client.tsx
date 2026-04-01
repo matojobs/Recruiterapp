@@ -10,16 +10,16 @@ import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
 import EditCandidateModal from '@/components/candidates/EditCandidateModal'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const todayStr = () => new Date().toISOString().slice(0, 10)
+const todayStr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 const endOfWeekStr = () => {
   const d = new Date()
   d.setDate(d.getDate() + 7)
-  return d.toISOString().slice(0, 10)
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 }
 const addDays = (n: number) => {
   const d = new Date()
   d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
 }
 
 export const UNREACHABLE_STATUSES = ['RNR', 'Busy', 'Switched Off', 'Incoming Off', 'Call Back', 'Out of network']

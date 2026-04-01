@@ -1038,8 +1038,8 @@ export default function AdminRecruiterPerformancePage() {
   }, [])
 
   useEffect(() => {
-    if (!dodDate) setDodDate(new Date().toISOString().slice(0, 10))
-    if (!mtdMonth) setMtdMonth(new Date().toISOString().slice(0, 7))
+    if (!dodDate) setDodDate(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))
+    if (!mtdMonth) setMtdMonth(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }).slice(0, 7))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1053,7 +1053,7 @@ export default function AdminRecruiterPerformancePage() {
 
     const prevDate = new Date(dodDate)
     prevDate.setDate(prevDate.getDate() - 7)
-    getRecruiterPerformanceDOD({ date: prevDate.toISOString().slice(0, 10) }).then(setDodPrev)
+    getRecruiterPerformanceDOD({ date: prevDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) }).then(setDodPrev)
   }, [dodDate])
 
   useEffect(() => {
