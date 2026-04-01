@@ -50,8 +50,8 @@ function buildQueryString(filters?: Record<string, unknown>, pagination?: { page
     })
 
     // Date range: if only one side is given, treat it as an exact date (from === to)
-    const from = filters.date_from || ''
-    const to   = filters.date_to   || ''
+    const from = filters.date_from ?? ''
+    const to   = filters.date_to   ?? ''
     if (from || to) {
       params.append('start_date', from || to)
       params.append('end_date',   to   || from)
