@@ -449,6 +449,9 @@ export async function getAdminSourcingApplications(params?: {
   joining_status?: string
   interview_status?: string
   search?: string
+  date_field?: string
+  start_date?: string
+  end_date?: string
 }): Promise<{
   applications: unknown[]
   total: number

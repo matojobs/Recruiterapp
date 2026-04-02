@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
+import * as XLSX from 'xlsx'
 import { getAdminSourcingApplications } from '@/lib/admin/api'
 import { CALL_STATUS_OPTIONS } from '@/lib/constants'
 
@@ -18,6 +19,7 @@ interface SourcingCandidate {
   selectionStatus: string | null
   joiningStatus: string | null
   assignedDate: string | null
+  joiningDate: string | null
 }
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
@@ -90,8 +92,14 @@ function mapRow(app: any): SourcingCandidate {
     selectionStatus: app.selection_status ?? null,
     joiningStatus: app.joining_status ?? null,
     assignedDate: app.assigned_date ?? app.created_at?.split('T')[0] ?? null,
+    joiningDate: app.joining_date ?? null,
   }
 }
+
+// ── Date helpers ──────────────────────────────────────────────────────────────
+type ExportMode = 'dod' | 'mtd' | 'custom'
+const todayIST = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
+const monthStartIST = () => todayIST().slice(0, 8) + '01'
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 const PAGE_SIZE = 25
@@ -107,6 +115,12 @@ export default function AdminCandidatesPage() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
+
+  // Export state
+  const [exportMode, setExportMode] = useState<ExportMode>('dod')
+  const [exportFrom, setExportFrom] = useState(todayIST())
+  const [exportTo, setExportTo] = useState(todayIST())
+  const [exporting, setExporting] = useState(false)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -135,6 +149,18 @@ export default function AdminCandidatesPage() {
   // Reset to page 1 on filter change
   useEffect(() => { setPage(1) }, [filterCall, filterSelection, filterJoining, search])
 
+  // Keep custom date pickers in sync when switching modes
+  useEffect(() => {
+    if (exportMode === 'dod') {
+      const t = todayIST()
+      setExportFrom(t)
+      setExportTo(t)
+    } else if (exportMode === 'mtd') {
+      setExportFrom(monthStartIST())
+      setExportTo(todayIST())
+    }
+  }, [exportMode])
+
   const stats = useMemo(() => ({
     total,
     connected: rows.filter(r => r.callStatus === 'Connected').length,
@@ -142,6 +168,72 @@ export default function AdminCandidatesPage() {
     selected: rows.filter(r => r.selectionStatus === 'Selected').length,
     joined: rows.filter(r => r.joiningStatus === 'Joined').length,
   }), [rows, total])
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      // Fetch all records for the selected date range (no pagination)
+      const result = await getAdminSourcingApplications({
+        limit: 10000,
+        page: 1,
+        call_status: filterCall || undefined,
+        selection_status: filterSelection || undefined,
+        joining_status: filterJoining || undefined,
+        search: search || undefined,
+        date_field: 'assigned_date',
+        start_date: exportFrom,
+        end_date: exportTo,
+      })
+
+      const exportRows: SourcingCandidate[] = result
+        ? (result.applications as any[]).map(mapRow)
+        : []
+
+      if (exportRows.length === 0) {
+        alert('No data found for the selected date range.')
+        setExporting(false)
+        return
+      }
+
+      const wsData = [
+        ['Candidate Name', 'Phone', 'Company', 'Job Role', 'Recruiter', 'Call Status', 'Interested', 'Interview', 'Selected', 'Joining Status', 'DOJ', 'Assigned Date'],
+        ...exportRows.map(r => [
+          r.candidateName,
+          r.phone ?? '',
+          r.company,
+          r.jobRole,
+          r.recruiter,
+          r.callStatus ?? '',
+          r.interestedStatus ?? '',
+          r.interviewStatus ?? '',
+          r.selectionStatus ?? '',
+          r.joiningStatus ?? '',
+          r.joiningDate ?? '',
+          r.assignedDate ?? '',
+        ]),
+      ]
+
+      const wb = XLSX.utils.book_new()
+      const ws = XLSX.utils.aoa_to_sheet(wsData)
+
+      // Auto column widths
+      const colWidths = wsData[0].map((_, ci) => ({
+        wch: Math.max(...wsData.map(row => String(row[ci] ?? '').length), 10),
+      }))
+      ws['!cols'] = colWidths
+
+      const rangeLabel = exportMode === 'dod'
+        ? todayIST()
+        : exportMode === 'mtd'
+        ? `${exportFrom}_to_${exportTo}`
+        : `${exportFrom}_to_${exportTo}`
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Candidates')
+      XLSX.writeFile(wb, `candidates_${rangeLabel}.xlsx`)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -219,6 +311,80 @@ export default function AdminCandidatesPage() {
         )}
       </div>
 
+      {/* Export */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Export by Assigned Date</p>
+            <div className="flex bg-gray-100 rounded-lg p-0.5 gap-0.5">
+              {([['dod', 'Today'], ['mtd', 'This Month'], ['custom', 'Custom']] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setExportMode(val)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    exportMode === val ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {exportMode === 'custom' && (
+            <div className="flex items-center gap-2">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">From</p>
+                <input
+                  type="date"
+                  value={exportFrom}
+                  onChange={e => setExportFrom(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">To</p>
+                <input
+                  type="date"
+                  value={exportTo}
+                  onChange={e => setExportTo(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                />
+              </div>
+            </div>
+          )}
+
+          {exportMode !== 'custom' && (
+            <div className="text-xs text-gray-400 pb-1">
+              {exportMode === 'dod' ? todayIST() : `${monthStartIST()} → ${todayIST()}`}
+            </div>
+          )}
+
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="ml-auto flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            {exporting ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Exporting...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export XLSX
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
       {/* Error */}
       {error && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 text-sm text-amber-800">
@@ -240,7 +406,7 @@ export default function AdminCandidatesPage() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['Candidate', 'Phone', 'Company', 'Job Role', 'Recruiter', 'Call Status', 'Interested', 'Interview', 'Selected', 'Joining', 'Assigned'].map(h => (
+                  {['Candidate', 'Phone', 'Company', 'Job Role', 'Recruiter', 'Call Status', 'Interested', 'Interview', 'Selected', 'Joining', 'DOJ', 'Assigned'].map(h => (
                     <th
                       key={h}
                       className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap"
@@ -254,7 +420,7 @@ export default function AdminCandidatesPage() {
                 {loading ? (
                   [...Array(8)].map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      {[...Array(11)].map((_, j) => (
+                      {[...Array(12)].map((_, j) => (
                         <td key={j} className="px-4 py-3">
                           <div className="h-4 bg-gray-100 rounded w-20" />
                         </td>
@@ -263,7 +429,7 @@ export default function AdminCandidatesPage() {
                   ))
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="px-4 py-10 text-center text-sm text-gray-400">
+                    <td colSpan={12} className="px-4 py-10 text-center text-sm text-gray-400">
                       No candidates found
                     </td>
                   </tr>
@@ -289,6 +455,9 @@ export default function AdminCandidatesPage() {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <StatusBadge value={row.joiningStatus} type="joining" />
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
+                        {row.joiningDate ?? '—'}
                       </td>
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
                         {row.assignedDate ?? '—'}
