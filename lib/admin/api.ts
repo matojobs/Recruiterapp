@@ -454,7 +454,7 @@ export async function getAdminSourcingApplications(params?: {
   total_pages?: number
 } | null> {
   try {
-    const { data } = await getApi().get('/admin/sourcing/applications', { params })
+    const { data } = await getApi().get('/sourcing/applications', { params })
     const apps = (data as any).applications ?? (data as any).data ?? (data as any).items ?? (Array.isArray(data) ? data : [])
     return {
       applications: apps,
