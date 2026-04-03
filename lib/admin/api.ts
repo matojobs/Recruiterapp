@@ -432,13 +432,7 @@ export async function exportActivityLogs(params?: Record<string, string | number
   return res.data
 }
 
-// —— Sourcing Candidates (recruiter portal data, admin view) ——
-/**
- * Fetch sourcing/recruiter applications for admin view.
- * Calls /api/recruiter/applications with the admin JWT token.
- * Requires backend to allow admin role on this route, or a dedicated
- * /api/admin/sourcing/applications endpoint.
- */
+// —— Sourcing Candidates (admin view via /admin/sourcing/applications) ——
 export async function getAdminSourcingApplications(params?: {
   page?: number
   limit?: number
@@ -460,29 +454,15 @@ export async function getAdminSourcingApplications(params?: {
   total_pages?: number
 } | null> {
   try {
-    const token = useAdminStore.getState().accessToken
-    const baseURL =
-      typeof window !== 'undefined'
-        ? process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
-        : process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
-    const { data } = await axios.get(`${baseURL}/admin/sourcing/applications`, {
-      params,
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (Array.isArray(data)) {
-      return { applications: data, total: data.length, page: 1, limit: data.length }
+    const { data } = await getApi().get('/admin/sourcing/applications', { params })
+    const apps = (data as any).applications ?? (data as any).data ?? (data as any).items ?? (Array.isArray(data) ? data : [])
+    return {
+      applications: apps,
+      total: (data as any).total ?? apps.length,
+      page: (data as any).page ?? 1,
+      limit: (data as any).limit ?? apps.length,
+      total_pages: (data as any).total_pages,
     }
-    if (data && typeof data === 'object') {
-      const apps = (data as any).applications ?? (data as any).data ?? (data as any).items ?? []
-      return {
-        applications: apps,
-        total: (data as any).total ?? apps.length,
-        page: (data as any).page ?? 1,
-        limit: (data as any).limit ?? apps.length,
-        total_pages: (data as any).total_pages,
-      }
-    }
-    return null
   } catch {
     return null
   }
@@ -493,17 +473,8 @@ const RECRUITER_PERF_BASE = '/recruiter-performance'
 
 export async function getRecruiterPerformanceDOD(params?: { date?: string }): Promise<RecruiterPerformanceDODResponse | null> {
   try {
-    const { data } = await getApi().get(`${RECRUITER_PERF_BASE}/dod`, { params })
-    if (!data || !Array.isArray(data.rows)) return null
-    // Backend appends Total as last row with recruiter_id=null — extract it
-    const totalIdx = (data.rows as any[]).findIndex((r: any) => r.recruiter_id == null || r.recruiter_name === 'Total')
-    const total = totalIdx >= 0 ? data.rows[totalIdx] : null
-    const rows = totalIdx >= 0 ? (data.rows as any[]).filter((_: any, i: number) => i !== totalIdx) : data.rows
-    return {
-      date: data.date ?? new Date().toISOString().split('T')[0],
-      rows,
-      total,
-    }
+    const { data } = await getApi().get<RecruiterPerformanceDODResponse>(`${RECRUITER_PERF_BASE}/dod`, { params })
+    return data
   } catch {
     return null
   }
@@ -511,17 +482,8 @@ export async function getRecruiterPerformanceDOD(params?: { date?: string }): Pr
 
 export async function getRecruiterPerformanceMTD(params?: { month?: string }): Promise<RecruiterPerformanceMTDResponse | null> {
   try {
-    const { data } = await getApi().get(`${RECRUITER_PERF_BASE}/mtd`, { params })
-    if (!data || !Array.isArray(data.rows)) return null
-    // Backend appends Total as last row with recruiter_id=null — extract it
-    const totalIdx = (data.rows as any[]).findIndex((r: any) => r.recruiter_id == null || r.recruiter_name === 'Total')
-    const total = totalIdx >= 0 ? data.rows[totalIdx] : null
-    const rows = totalIdx >= 0 ? (data.rows as any[]).filter((_: any, i: number) => i !== totalIdx) : data.rows
-    return {
-      month: data.month ?? new Date().toISOString().slice(0, 7),
-      rows,
-      total,
-    }
+    const { data } = await getApi().get<RecruiterPerformanceMTDResponse>(`${RECRUITER_PERF_BASE}/mtd`, { params })
+    return data
   } catch {
     return null
   }
