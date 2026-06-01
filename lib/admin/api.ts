@@ -529,3 +529,18 @@ export async function getRecruiterPerformanceInterviewStatusCompany(params?: { d
     return null
   }
 }
+
+export async function getInvoiceDashboard(year: number): Promise<unknown> {
+  try {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('admin_access_token') : null
+    const baseUrl = getBaseURL()
+    const res = await fetch(`${baseUrl}/invoices/dashboard?year=${year}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    return json.data || json
+  } catch {
+    return null
+  }
+}

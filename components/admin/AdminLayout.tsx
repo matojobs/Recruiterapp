@@ -75,8 +75,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-14 items-center justify-between border-b border-gray-200 bg-white px-6 dark:border-gray-700 dark:bg-gray-800">
           <div />
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <span className="text-sm text-gray-600 dark:text-gray-400">{adminName || 'Admin'}</span>
+            <a
+              href="https://internship.jobsmato.com/admin/invoices"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              title="Switch to Internship Admin"
+            >
+              → Internship
+            </a>
             <button
               type="button"
               onClick={toggleDark}
