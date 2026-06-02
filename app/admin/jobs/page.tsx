@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import { getJobs, updateJobStatus, deleteJob, bulkJobAction } from '@/lib/admin/api'
+import React, { useEffect, useState, useCallback } from 'react'
+import { getJobs, updateJobStatus, deleteJob, bulkJobAction, updateJobVacancies } from '@/lib/admin/api'
 import type { AdminJob } from '@/lib/admin/types'
 import { PermissionGuard, useHasPermission } from '@/components/admin/PermissionGuard'
 import { DataTable } from '@/components/admin/DataTable'
@@ -26,6 +26,7 @@ function JobsContent() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [bulkOpen, setBulkOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
+  const [vacancyOpen, setVacancyOpen] = useState<AdminJob | null>(null)
 
   const canEdit = useHasPermission('edit_jobs')
   const canDelete = useHasPermission('delete_jobs')
@@ -109,6 +110,15 @@ function JobsContent() {
                     className="rounded border border-indigo-300 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 dark:border-indigo-600 dark:text-indigo-400"
                   >
                     Status
+                  </button>
+                )}
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => setVacancyOpen(r)}
+                    className="rounded border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-600 dark:text-emerald-400"
+                  >
+                    Vacancies
                   </button>
                 )}
                 {canDelete && (
@@ -213,6 +223,17 @@ function JobsContent() {
           onClose={() => setStatusOpen(null)}
           onSuccess={() => {
             setStatusOpen(null)
+            load()
+          }}
+        />
+      )}
+
+      {vacancyOpen && (
+        <VacancyModal
+          job={vacancyOpen}
+          onClose={() => setVacancyOpen(null)}
+          onSuccess={() => {
+            setVacancyOpen(null)
             load()
           }}
         />
@@ -348,6 +369,87 @@ function BulkJobActionModal({
             <button type="submit" disabled={loading} className="rounded-lg bg-indigo-600 px-4 py-2 text-white disabled:opacity-50">
               {loading ? 'Applying...' : 'Apply'}
             </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function VacancyModal({ job, onClose, onSuccess }: { job: AdminJob; onClose: () => void; onSuccess: () => void }) {
+  const [rows, setRows] = useState<{ city: string; openings: number }[]>(
+    Array.isArray((job as any).vacancies) && (job as any).vacancies.length > 0
+      ? (job as any).vacancies
+      : [{ city: '', openings: 1 }]
+  )
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const update = (i: number, field: 'city' | 'openings', val: string) =>
+    setRows(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: field === 'openings' ? Math.max(1, parseInt(val) || 1) : val } : r))
+
+  const add = () => setRows(prev => [...prev, { city: '', openings: 1 }])
+  const remove = (i: number) => setRows(prev => prev.filter((_, idx) => idx !== i))
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    const clean = rows.filter(r => r.city.trim())
+    if (clean.length === 0) { setError('Add at least one city.'); return }
+    setLoading(true); setError('')
+    try {
+      await updateJobVacancies(job.id, clean)
+      onSuccess()
+    } catch {
+      setError('Failed to save. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 dark:bg-gray-800 shadow-xl">
+        <h2 className="text-lg font-semibold dark:text-white">City-wise Vacancies</h2>
+        <p className="text-sm text-gray-500 mt-0.5 mb-4 truncate">{job.title}</p>
+        <form onSubmit={submit} className="space-y-3">
+          <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+            {rows.map((r, i) => (
+              <div key={i} className="flex gap-2 items-center">
+                <input
+                  placeholder="City"
+                  value={r.city}
+                  onChange={e => update(i, 'city', e.target.value)}
+                  className="flex-1 rounded-lg border px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                />
+                <input
+                  type="number"
+                  min={1}
+                  value={r.openings}
+                  onChange={e => update(i, 'openings', e.target.value)}
+                  className="w-20 rounded-lg border px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  placeholder="Qty"
+                />
+                <button type="button" onClick={() => remove(i)}
+                  className="text-red-500 hover:text-red-700 text-lg font-bold px-1">×</button>
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={add}
+            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+            + Add City
+          </button>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <div className="flex justify-between items-center pt-2 border-t">
+            <span className="text-xs text-gray-400">
+              Total: {rows.filter(r => r.city.trim()).reduce((s, r) => s + r.openings, 0)} openings
+            </span>
+            <div className="flex gap-2">
+              <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>
+              <button type="submit" disabled={loading}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white disabled:opacity-50">
+                {loading ? 'Saving...' : 'Save Vacancies'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

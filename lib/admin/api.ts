@@ -544,3 +544,8 @@ export async function getInvoiceDashboard(year: number): Promise<unknown> {
     return null
   }
 }
+
+export async function updateJobVacancies(id: number, vacancies: { city: string; openings: number }[]) {
+  const { data } = await getApi().patch(`/jobs/${id}/vacancies`, { vacancies })
+  return data
+}
