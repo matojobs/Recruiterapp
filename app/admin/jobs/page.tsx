@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { getJobs, updateJobStatus, deleteJob, bulkJobAction, updateJobVacancies } from '@/lib/admin/api'
+import { getJobs, updateJobStatus, deleteJob, bulkJobAction, updateJobVacancies, uploadJobJd } from '@/lib/admin/api'
 import type { AdminJob } from '@/lib/admin/types'
 import { PermissionGuard, useHasPermission } from '@/components/admin/PermissionGuard'
 import { DataTable } from '@/components/admin/DataTable'
@@ -27,6 +27,7 @@ function JobsContent() {
   const [bulkOpen, setBulkOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [vacancyOpen, setVacancyOpen] = useState<AdminJob | null>(null)
+  const [jdUploading, setJdUploading] = useState<number | null>(null)
 
   const canEdit = useHasPermission('edit_jobs')
   const canDelete = useHasPermission('delete_jobs')
@@ -120,6 +121,27 @@ function JobsContent() {
                   >
                     Vacancies
                   </button>
+                  <label className="cursor-pointer">
+                    <span className={`rounded border border-violet-300 px-2 py-1 text-xs font-medium text-violet-700 hover:bg-violet-50 dark:border-violet-600 dark:text-violet-400 ${jdUploading === r.id ? 'opacity-50' : ''}`}>
+                      {jdUploading === r.id ? 'Uploading…' : 'Upload JD'}
+                    </span>
+                    <input type="file" accept=".pdf,.doc,.docx" className="hidden"
+                      disabled={jdUploading === r.id}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        setJdUploading(r.id)
+                        try {
+                          await uploadJobJd(r.id, file)
+                          alert('JD uploaded successfully!')
+                        } catch {
+                          alert('Upload failed. Try again.')
+                        } finally {
+                          setJdUploading(null)
+                          e.target.value = ''
+                        }
+                      }} />
+                  </label>
                 )}
                 {canDelete && (
                   <button

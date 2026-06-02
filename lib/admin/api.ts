@@ -549,3 +549,12 @@ export async function updateJobVacancies(id: number, vacancies: { city: string; 
   const { data } = await getApi().patch(`/jobs/${id}/vacancies`, { vacancies })
   return data
 }
+
+export async function uploadJobJd(id: number, file: File) {
+  const fd = new FormData()
+  fd.append('file', file)
+  const { data } = await getApi().post(`/jobs/${id}/jd`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
