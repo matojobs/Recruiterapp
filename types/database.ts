@@ -48,6 +48,8 @@ export interface Application {
   call_status: 'Connected' | 'RNR' | 'Busy' | 'Switched Off' | 'Incoming Off' | 'Call Back' | 'Invalid' | 'Wrong Number' | 'Out of network' | null;
   interested_status: 'Yes' | 'No' | 'Call Back Later' | null;
   not_interested_remark: string | null;
+  not_attended_reason: string | null;
+  rejection_reason: string | null;
   interview_scheduled: boolean;
   interview_date: string | null;
   turnup: boolean | null;

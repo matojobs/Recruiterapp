@@ -8,6 +8,7 @@ import type { Application } from '@/types/database'
 import { formatDate } from '@/lib/utils'
 import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
 import EditCandidateModal from '@/components/candidates/EditCandidateModal'
+import CallButton from '@/components/ui/CallButton'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const todayStr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
@@ -180,11 +181,7 @@ function FollowUpCard({
           <p className="text-xs text-gray-500 mt-0.5 truncate">{companyRole(app)}</p>
 
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-            {phone && (
-              <a href={`tel:${phone}`} className="text-xs text-indigo-600 hover:underline font-medium">
-                {phone}
-              </a>
-            )}
+            {phone && <CallButton phone={phone} />}
             {app.call_date && (
               <span className="text-xs text-gray-400">Last call: {formatDate(app.call_date)}</span>
             )}
@@ -283,6 +280,7 @@ export default function FollowUpsPageClient() {
   const [apps, setApps] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [period, setPeriod] = useState<'day' | 'month' | 'year' | 'all'>('all')
   const [editingApp, setEditingApp] = useState<Application | null>(null)
 
   const load = useCallback(async () => {
@@ -316,7 +314,20 @@ export default function FollowUpsPageClient() {
     const today = todayStr()
     const weekEnd = endOfWeekStr()
 
-    const active = apps.filter(a => !isFinalStage(a))
+    let active = apps.filter(a => !isFinalStage(a))
+
+    // Period filter — scope by follow-up date (day/month/year/overall)
+    if (period !== 'all') {
+      const t = today
+      active = active.filter(a => {
+        const fd = a.followup_date?.slice(0, 10)
+        if (!fd) return false
+        if (period === 'day') return fd === t
+        if (period === 'month') return fd.slice(0, 7) === t.slice(0, 7)
+        return fd.slice(0, 4) === t.slice(0, 4) // year
+      })
+    }
+
     const q = search.toLowerCase()
     const filtered = q
       ? active.filter(a =>
@@ -365,7 +376,7 @@ export default function FollowUpsPageClient() {
       { id: 'callback',    label: 'Call Back Later',   description: 'No date set — needs scheduling',      accent: 'bg-yellow-400', badge: 'bg-yellow-100 text-yellow-700', apps: callBackNoDate },
       { id: 'unreachable', label: 'Unreachable',       description: 'RNR / Busy / Switched Off — no date', accent: 'bg-gray-400',   badge: 'bg-gray-100 text-gray-600',     apps: unreachableNoDate },
     ]
-  }, [apps, search])
+  }, [apps, search, period])
 
   const totalCount = sections.reduce((s, sec) => s + sec.apps.length, 0)
 
@@ -390,13 +401,31 @@ export default function FollowUpsPageClient() {
               : 'All caught up! No follow-ups pending.'}
           </p>
         </div>
-        <input
-          type="text"
-          placeholder="Search by name, phone, company..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full sm:w-64 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex bg-gray-100 rounded-lg p-1 gap-1">
+            {([
+              { v: 'day', l: 'Day' },
+              { v: 'month', l: 'Month' },
+              { v: 'year', l: 'Year' },
+              { v: 'all', l: 'Overall' },
+            ] as const).map(o => (
+              <button
+                key={o.v}
+                onClick={() => setPeriod(o.v)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${period === o.v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                {o.l}
+              </button>
+            ))}
+          </div>
+          <input
+            type="text"
+            placeholder="Search by name, phone, company..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full sm:w-64 text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          />
+        </div>
       </div>
 
       {/* Tip */}

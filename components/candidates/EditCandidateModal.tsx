@@ -7,6 +7,11 @@ import { formatDate } from '@/lib/utils'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
+import ReasonSelect from '@/components/ui/ReasonSelect'
+import CallButton from '@/components/ui/CallButton'
+import {
+  NOT_INTERESTED_REASONS, NOT_ATTENDED_REASONS, REJECTION_REASONS, BACKOUT_REASONS,
+} from '@/lib/reasons'
 
 const UNREACHABLE_STATUSES = ['RNR', 'Busy', 'Switched Off', 'Incoming Off', 'Call Back', 'Out of network']
 
@@ -51,6 +56,8 @@ export default function EditCandidateModal({
         call_status: callStatus,
         interested_status: application.interested_status || '',
         not_interested_remark: application.not_interested_remark || '',
+        not_attended_reason: application.not_attended_reason || '',
+        rejection_reason: application.rejection_reason || '',
         interview_scheduled: application.interview_scheduled || false,
         interview_date: application.interview_date || '',
         turnup: application.turnup || false,
@@ -71,6 +78,21 @@ export default function EditCandidateModal({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!application) return
+
+    // ── Mandatory negative-funnel reasons ──────────────────────────────────
+    const missing: string[] = []
+    if (formData.interested_status === 'No' && !(formData.not_interested_remark as string)?.trim())
+      missing.push('Not Interested Reason')
+    if (formData.interview_status === 'Not Attended' && !(formData.not_attended_reason as string)?.trim())
+      missing.push('Not Attended Reason')
+    if ((formData.interview_status === 'Rejected' || formData.selection_status === 'Not Selected') && !(formData.rejection_reason as string)?.trim())
+      missing.push('Rejection Reason')
+    if (formData.joining_status === 'Backed Out' && !(formData.backout_reason as string)?.trim())
+      missing.push('Backout Reason')
+    if (missing.length) {
+      alert(`Please provide: ${missing.join(', ')}`)
+      return
+    }
 
     setLoading(true)
     try {
@@ -127,6 +149,10 @@ export default function EditCandidateModal({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
               <p className="text-sm text-gray-900">{(application.job_role as any)?.company?.company_name || '-'}</p>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Call Candidate</label>
+              <CallButton phone={application.candidate?.phone} variant="block" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Portal</label>
@@ -196,11 +222,13 @@ export default function EditCandidateModal({
             </div>
             {formData.interested_status === 'No' && (
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Not Interested Remark</label>
-                <Input
+                <label className="block text-sm font-medium text-gray-700 mb-1">Not Interested Reason <span className="text-red-500">*</span></label>
+                <ReasonSelect
+                  options={NOT_INTERESTED_REASONS}
                   value={formData.not_interested_remark || ''}
-                  onChange={(e) => setFormData({ ...formData, not_interested_remark: e.target.value })}
-                  placeholder="Reason for not being interested..."
+                  onChange={(v) => setFormData({ ...formData, not_interested_remark: v })}
+                  placeholder="Select why they're not interested…"
+                  required
                 />
               </div>
             )}
@@ -270,6 +298,30 @@ export default function EditCandidateModal({
                     ]}
                   />
                 </div>
+                {formData.interview_status === 'Not Attended' && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Not Attended Reason <span className="text-red-500">*</span></label>
+                    <ReasonSelect
+                      options={NOT_ATTENDED_REASONS}
+                      value={formData.not_attended_reason || ''}
+                      onChange={(v) => setFormData({ ...formData, not_attended_reason: v })}
+                      placeholder="Why did they not attend?…"
+                      required
+                    />
+                  </div>
+                )}
+                {formData.interview_status === 'Rejected' && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason <span className="text-red-500">*</span></label>
+                    <ReasonSelect
+                      options={REJECTION_REASONS}
+                      value={formData.rejection_reason || ''}
+                      onChange={(v) => setFormData({ ...formData, rejection_reason: v })}
+                      placeholder="Why were they rejected?…"
+                      required
+                    />
+                  </div>
+                )}
               </>
             )}
             <div>
@@ -284,6 +336,18 @@ export default function EditCandidateModal({
                 ]}
               />
             </div>
+            {formData.selection_status === 'Not Selected' && formData.interview_status !== 'Rejected' && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rejection Reason <span className="text-red-500">*</span></label>
+                <ReasonSelect
+                  options={REJECTION_REASONS}
+                  value={formData.rejection_reason || ''}
+                  onChange={(v) => setFormData({ ...formData, rejection_reason: v })}
+                  placeholder="Why were they not selected?…"
+                  required
+                />
+              </div>
+            )}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Joining Status</label>
               <Select
@@ -338,13 +402,13 @@ export default function EditCandidateModal({
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Backout Reason</label>
-                  <textarea
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Backout Reason <span className="text-red-500">*</span></label>
+                  <ReasonSelect
+                    options={BACKOUT_REASONS}
                     value={formData.backout_reason || ''}
-                    onChange={(e) => setFormData({ ...formData, backout_reason: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                    rows={2}
-                    placeholder="Reason for backing out..."
+                    onChange={(v) => setFormData({ ...formData, backout_reason: v })}
+                    placeholder="Why did they back out?…"
+                    required
                   />
                 </div>
               </>

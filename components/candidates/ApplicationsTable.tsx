@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import type { Application } from '@/types/database'
 import { formatDate, calculateJoinedAge, formatJoinedAge } from '@/lib/utils'
 import EditCandidateModal from './EditCandidateModal'
+import CallButton from '@/components/ui/CallButton'
 
 function EditIcon() {
   return (
@@ -167,9 +168,9 @@ export default function ApplicationsTable({ applications, page, limit, total, on
                       {app.candidate?.candidate_name || '—'}
                     </td>
 
-                    {/* Phone — frozen */}
-                    <td className={`px-3 py-2 sticky left-[220px] z-10 border-r border-gray-100 ${i % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'} group-hover:bg-indigo-50/30 text-gray-600 whitespace-nowrap font-mono text-xs`}>
-                      {app.candidate?.phone || '—'}
+                    {/* Phone — frozen, click-to-call + QR */}
+                    <td className={`px-3 py-2 sticky left-[220px] z-10 border-r border-gray-100 ${i % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'} group-hover:bg-indigo-50/30 text-gray-600 whitespace-nowrap`}>
+                      <CallButton phone={app.candidate?.phone} />
                     </td>
 
                     <td className="px-3 py-2 whitespace-nowrap text-gray-700 text-xs">{(app.job_role as any)?.company?.company_name || '—'}</td>

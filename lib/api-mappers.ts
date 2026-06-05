@@ -96,6 +96,8 @@ interface BackendApplication {
   call_status: string | null
   interested_status: string | null
   not_interested_remark?: string | null
+  not_attended_reason?: string | null
+  rejection_reason?: string | null
   interview_scheduled?: boolean
   interview_date?: string | null
   turnup?: boolean | null
@@ -301,6 +303,8 @@ export function mapApplication(backend: BackendApplication): Application {
     call_status: (backend.call_status === 'call connected' ? 'Connected' : backend.call_status === 'Switch off' ? 'Switched Off' : backend.call_status) as Application['call_status'],
     interested_status: backend.interested_status as Application['interested_status'],
     not_interested_remark: backend.not_interested_remark ?? null,
+    not_attended_reason: backend.not_attended_reason ?? null,
+    rejection_reason: backend.rejection_reason ?? null,
     interview_scheduled: backend.interview_scheduled ?? false,
     interview_date: backend.interview_date ?? null,
     turnup: backend.turnup ?? null,
