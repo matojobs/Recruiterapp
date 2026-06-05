@@ -1,7 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getAnalyticsNegativeFunnel, type NegativeFunnelData, type ReasonBucket } from '@/lib/admin/api'
+import {
+  getAnalyticsNegativeFunnel, getAnalyticsNegativeFunnelByRecruiter,
+  type NegativeFunnelData, type ReasonBucket, type NegativeFunnelRecruiterRow,
+} from '@/lib/admin/api'
 
 type Preset = 'mtd' | 'last_month' | 'ytd' | 'all'
 const PRESETS: { key: Preset; label: string }[] = [
@@ -67,24 +70,40 @@ function ReasonCard({ title, color, bucket }: { title: string; color: string; bu
 export default function NegativeFunnelV2() {
   const [preset, setPreset] = useState<Preset>('ytd')
   const [data, setData] = useState<NegativeFunnelData | null>(null)
+  const [byRecruiter, setByRecruiter] = useState<NegativeFunnelRecruiterRow[]>([])
+  const [recruiter, setRecruiter] = useState<{ id: number; name: string } | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     const { from, to } = rangeFor(preset)
-    getAnalyticsNegativeFunnel({ from, to }).then(d => { if (!cancelled) setData(d) }).finally(() => { if (!cancelled) setLoading(false) })
+    Promise.all([
+      getAnalyticsNegativeFunnel({ from, to, recruiter_id: recruiter?.id }),
+      getAnalyticsNegativeFunnelByRecruiter({ from, to }),
+    ]).then(([d, br]) => {
+      if (cancelled) return
+      setData(d); setByRecruiter(br)
+    }).finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [preset])
+  }, [preset, recruiter])
 
   const lost = data ? data.not_interested.total + data.not_attended.total + data.rejection.total + data.backout.total : 0
+  const maxTotal = Math.max(...byRecruiter.map(r => r.total), 1)
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-base font-semibold text-gray-800 dark:text-gray-200">Negative Funnel — why we lose candidates</h3>
-          <p className="text-xs text-gray-500">{loading ? '…' : `${lost} drop-offs in range — captured at every stage`}</p>
+          <p className="text-xs text-gray-500">
+            {loading ? '…' : `${lost} drop-offs in range`}
+            {recruiter && (
+              <> · <span className="font-semibold text-indigo-600">{recruiter.name}</span>
+                <button onClick={() => setRecruiter(null)} className="ml-1 text-indigo-500 hover:underline">(clear)</button>
+              </>
+            )}
+          </p>
         </div>
         <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 gap-1">
           {PRESETS.map(p => (
@@ -95,6 +114,52 @@ export default function NegativeFunnelV2() {
           ))}
         </div>
       </div>
+
+      {/* Per-recruiter drop-off summary — click a row to scope the cards below */}
+      {!loading && byRecruiter.length > 0 && (
+        <div className="rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
+          <div className="border-b border-gray-200 px-4 py-2 dark:border-gray-700">
+            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Drop-offs by Recruiter <span className="font-normal text-gray-400">(click a row to filter)</span></h4>
+          </div>
+          <div className="max-h-72 overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-slate-100 dark:bg-gray-700">
+                <tr className="border-b-2 border-slate-200 dark:border-gray-600 text-right">
+                  <th className="px-3 py-2 text-left font-medium text-gray-600 dark:text-gray-300">Recruiter</th>
+                  <th className="px-3 py-2 font-medium text-red-600">Not Int.</th>
+                  <th className="px-3 py-2 font-medium text-amber-600">No-show</th>
+                  <th className="px-3 py-2 font-medium text-orange-600">Rejected</th>
+                  <th className="px-3 py-2 font-medium text-rose-600">Backout</th>
+                  <th className="px-3 py-2 font-medium text-gray-700 dark:text-gray-200">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {byRecruiter.map((r, i) => (
+                  <tr
+                    key={r.recruiter_id}
+                    onClick={() => setRecruiter(recruiter?.id === r.recruiter_id ? null : { id: r.recruiter_id, name: r.recruiter_name })}
+                    className={`border-b border-gray-100 dark:border-gray-700 text-right cursor-pointer transition-colors ${recruiter?.id === r.recruiter_id ? 'bg-indigo-50 dark:bg-indigo-900/30' : i % 2 ? 'bg-slate-50/60 dark:bg-gray-700/40' : ''} hover:bg-indigo-50/70 dark:hover:bg-indigo-900/20`}
+                  >
+                    <td className="px-3 py-2 text-left font-medium text-gray-900 dark:text-gray-100">{r.recruiter_name}</td>
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{r.not_interested}</td>
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{r.not_attended}</td>
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{r.rejected}</td>
+                    <td className="px-3 py-2 text-gray-700 dark:text-gray-300">{r.backout}</td>
+                    <td className="px-3 py-2">
+                      <span className="inline-flex items-center gap-2">
+                        <span className="hidden sm:block w-16 h-1.5 rounded-full bg-gray-100 dark:bg-gray-600">
+                          <span className="block h-1.5 rounded-full bg-indigo-500" style={{ width: `${Math.round((r.total / maxTotal) * 100)}%` }} />
+                        </span>
+                        <span className="font-bold text-gray-900 dark:text-gray-100">{r.total}</span>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {loading || !data ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">{[...Array(4)].map((_, i) => <div key={i} className="h-64 bg-gray-100 dark:bg-gray-700 rounded-xl animate-pulse" />)}</div>

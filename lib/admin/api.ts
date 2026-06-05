@@ -611,11 +611,22 @@ export interface NegativeFunnelData {
   rejection: ReasonBucket
   backout: ReasonBucket
 }
-export async function getAnalyticsNegativeFunnel(params: { from: string; to: string }): Promise<NegativeFunnelData | null> {
+export async function getAnalyticsNegativeFunnel(params: { from: string; to: string; recruiter_id?: number }): Promise<NegativeFunnelData | null> {
   try {
     const { data } = await getApi().get<NegativeFunnelData>('/analytics/negative-funnel', { params })
     return data
   } catch { return null }
+}
+
+export interface NegativeFunnelRecruiterRow {
+  recruiter_id: number; recruiter_name: string
+  not_interested: number; not_attended: number; rejected: number; backout: number; total: number
+}
+export async function getAnalyticsNegativeFunnelByRecruiter(params: { from: string; to: string }): Promise<NegativeFunnelRecruiterRow[]> {
+  try {
+    const { data } = await getApi().get<NegativeFunnelRecruiterRow[]>('/analytics/negative-funnel/by-recruiter', { params })
+    return Array.isArray(data) ? data : []
+  } catch { return [] }
 }
 
 // ── Billing (Phase 5) ───────────────────────────────────────────────────────
