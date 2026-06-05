@@ -98,6 +98,7 @@ interface BackendApplication {
   not_interested_remark?: string | null
   not_attended_reason?: string | null
   rejection_reason?: string | null
+  linkedin?: string | null
   interview_scheduled?: boolean
   interview_date?: string | null
   turnup?: boolean | null
@@ -305,6 +306,7 @@ export function mapApplication(backend: BackendApplication): Application {
     not_interested_remark: backend.not_interested_remark ?? null,
     not_attended_reason: backend.not_attended_reason ?? null,
     rejection_reason: backend.rejection_reason ?? null,
+    linkedin: backend.linkedin ?? null,
     interview_scheduled: backend.interview_scheduled ?? false,
     interview_date: backend.interview_date ?? null,
     turnup: backend.turnup ?? null,

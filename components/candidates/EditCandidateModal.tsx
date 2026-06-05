@@ -58,6 +58,7 @@ export default function EditCandidateModal({
         not_interested_remark: application.not_interested_remark || '',
         not_attended_reason: application.not_attended_reason || '',
         rejection_reason: application.rejection_reason || '',
+        linkedin: application.linkedin || '',
         interview_scheduled: application.interview_scheduled || false,
         interview_date: application.interview_date || '',
         turnup: application.turnup || false,
@@ -160,6 +161,16 @@ export default function EditCandidateModal({
                 value={formData.portal || ''}
                 onChange={(e) => setFormData({ ...formData, portal: e.target.value })}
                 placeholder="e.g., Naukri, LinkedIn"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                LinkedIn Profile <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <Input
+                value={formData.linkedin || ''}
+                onChange={(e) => setFormData({ ...formData, linkedin: e.target.value })}
+                placeholder="https://linkedin.com/in/…"
               />
             </div>
             <div>
