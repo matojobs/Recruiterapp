@@ -1,14 +1,13 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { getApplicationsPage, getRecruiters, getCompanies, getJobRoles, getRecruiterTodayProgress, updateApplication } from '@/lib/data'
+import { getApplicationsPage, getRecruiters, getCompanies, getJobRoles, updateApplication } from '@/lib/data'
 import { getCurrentUser } from '@/lib/auth-helper'
-import type { Application, ApplicationFilters, Recruiter, Company, JobRole, PipelineFlow } from '@/types/database'
-import { EMPTY_PIPELINE_FLOW } from '@/types/database'
+import type { Application, ApplicationFilters, Recruiter, Company, JobRole } from '@/types/database'
 import { calculateJoinedAge, formatJoinedAge } from '@/lib/utils'
 import ApplicationsTable from '@/components/candidates/ApplicationsTable'
 import Filters from '@/components/candidates/Filters'
-import FlowTracking from '@/components/candidates/FlowTracking'
+import LiveFunnelPanel from '@/components/reports/LiveFunnelPanel'
 import AddApplicationModal from '@/components/candidates/AddApplicationModal'
 import * as XLSX from 'xlsx'
 
@@ -17,7 +16,6 @@ export default function CandidatesPage() {
   const [recruiters, setRecruiters] = useState<Recruiter[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [jobRoles, setJobRoles] = useState<JobRole[]>([])
-  const [flow, setFlow] = useState<PipelineFlow>(EMPTY_PIPELINE_FLOW)
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState<ApplicationFilters>({})
   const [searchQuery, setSearchQuery] = useState('')
@@ -37,23 +35,18 @@ export default function CandidatesPage() {
       const user = await getCurrentUser()
       const recruiterId = user?.recruiter_id ? String(user.recruiter_id) : undefined
 
-      const [pageResult, flowData] = await Promise.all([
-        getApplicationsPage({
-          ...filters,
-          recruiter_id: recruiterId,
-          search: searchQuery.trim() || undefined,
-          page,
-          limit,
-        }),
-        getRecruiterTodayProgress(recruiterId),
-      ])
+      const pageResult = await getApplicationsPage({
+        ...filters,
+        recruiter_id: recruiterId,
+        search: searchQuery.trim() || undefined,
+        page,
+        limit,
+      })
 
       setApplications(pageResult.applications)
       setTotal(pageResult.total)
-      setFlow(flowData)
     } catch (error) {
       console.error('Error loading applications:', error)
-      setFlow(EMPTY_PIPELINE_FLOW)
     } finally {
       setLoading(false)
     }
@@ -159,8 +152,8 @@ export default function CandidatesPage() {
         </button>
       </div>
 
-      {/* Today's progress — compact pills, only visible when there's data */}
-      <FlowTracking flow={flow} />
+      {/* Live funnel — single source of truth (cohort-correct, date-selectable) */}
+      <LiveFunnelPanel />
 
       {/* Unified search + filter toolbar */}
       <Filters
