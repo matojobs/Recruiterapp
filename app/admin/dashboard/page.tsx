@@ -16,6 +16,7 @@ import type {
   RecruiterPerformanceMTDResponse,
 } from '@/lib/admin/types'
 import { PermissionGuard } from '@/components/admin/PermissionGuard'
+import DashboardV2 from '@/components/admin/DashboardV2'
 import { StatsCard } from '@/components/admin/StatsCard'
 import { StatsCardSkeleton, ChartSkeleton } from '@/components/admin/LoadingSkeleton'
 import { ChartCard } from '@/components/admin/ChartCard'
@@ -256,22 +257,22 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* ── Sourcing section ── */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500">Sourcing — Today</p>
-            {dodData?.date && <span className="text-xs text-gray-400">{dodData.date}</span>}
-          </div>
+        {/* ── Sourcing section (v2 — live, single source of truth) ── */}
+        <DashboardV2 />
 
-          {/* Today KPI strip from DOD totals */}
-          <TodayKPIs dod={dodData} loading={dodLoading} />
-
-          {/* Today's performance table + MTD side by side */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <TodayPerformanceTable data={dodData} loading={dodLoading} />
-            <MTDSummary data={mtdData} loading={mtdLoading} />
+        {/* ── Legacy sourcing tables (kept for dual-run comparison) ── */}
+        <details className="space-y-3">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600">
+            Legacy sourcing tables (DOD/MTD)
+          </summary>
+          <div className="mt-3">
+            <TodayKPIs dod={dodData} loading={dodLoading} />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
+              <TodayPerformanceTable data={dodData} loading={dodLoading} />
+              <MTDSummary data={mtdData} loading={mtdLoading} />
+            </div>
           </div>
-        </div>
+        </details>
 
         {/* ── Job Portal section ── */}
         <div className="space-y-3">

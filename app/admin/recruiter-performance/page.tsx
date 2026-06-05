@@ -21,8 +21,9 @@ import type {
   NegativeFunnelRemark,
 } from '@/lib/admin/types'
 import PerformanceV2 from '@/components/admin/PerformanceV2'
+import QualityTab from '@/components/admin/QualityTab'
 
-type TabId = 'v2' | 'dod' | 'mtd' | 'individual' | 'company' | 'negative' | 'interview-status'
+type TabId = 'v2' | 'portal-quality' | 'company-quality' | 'dod' | 'mtd' | 'individual' | 'company' | 'negative' | 'interview-status'
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -1202,6 +1203,8 @@ export default function AdminRecruiterPerformancePage() {
         {(
           [
             { id: 'v2' as TabId, label: '⚡ Performance v2 (Live)' },
+            { id: 'portal-quality' as TabId, label: 'Portal Quality' },
+            { id: 'company-quality' as TabId, label: 'Company Health' },
             { id: 'dod' as TabId, label: 'Day Report (DOD)' },
             { id: 'mtd' as TabId, label: 'Month Report (MTD)' },
             { id: 'individual' as TabId, label: 'Individual' },
@@ -1229,6 +1232,8 @@ export default function AdminRecruiterPerformancePage() {
       <div className="min-h-[200px] rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
         {/* ----------------------------------------------------- Performance v2 */}
         {tab === 'v2' && <PerformanceV2 />}
+        {tab === 'portal-quality' && <QualityTab dimension="portal" />}
+        {tab === 'company-quality' && <QualityTab dimension="company" />}
 
         {/* ---------------------------------------------------------------- DOD */}
         {tab === 'dod' && (

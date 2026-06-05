@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { getInvoiceDashboard } from '@/lib/admin/api'
+import SourcingBilling from '@/components/admin/SourcingBilling'
 
 const IconFileText = () => (
   <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
@@ -75,6 +76,11 @@ export default function AdminInvoicesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Sourcing billing (Phase 5 — joined-driven) */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <SourcingBilling />
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

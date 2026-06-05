@@ -579,6 +579,52 @@ export async function getAnalyticsScorecards(params: {
   }
 }
 
+export interface GroupedFunnelRow {
+  group_id: string | number
+  group_name: string
+  sourced: number; attempts: number; connected: number; interested: number
+  interview_sched: number; interview_done: number; selected: number; joined: number
+  backout: number; yet_to_join: number
+  connect_rate: number; interest_rate: number
+  interview_to_select: number; select_to_join: number; sourced_to_join: number
+}
+
+export async function getAnalyticsByPortal(params: { from: string; to: string }): Promise<GroupedFunnelRow[]> {
+  try {
+    const { data } = await getApi().get<GroupedFunnelRow[]>('/analytics/by-portal', { params })
+    return Array.isArray(data) ? data : []
+  } catch { return [] }
+}
+
+export async function getAnalyticsByCompany(params: { from: string; to: string }): Promise<GroupedFunnelRow[]> {
+  try {
+    const { data } = await getApi().get<GroupedFunnelRow[]>('/analytics/by-company', { params })
+    return Array.isArray(data) ? data : []
+  } catch { return [] }
+}
+
+// ── Billing (Phase 5) ───────────────────────────────────────────────────────
+export interface BillingLine {
+  id: number; application_id: number; company_id: number | null; company_name: string | null
+  recruiter_id: number | null; recruiter_name: string | null; candidate_name: string | null
+  join_date: string | null; amount: number; status: string; invoice_id: number | null
+}
+export interface BillingDashboard {
+  year: number
+  monthly: { month: number; lines: number; billed: string; collected: string; pending: string }[]
+  summary: { queued?: number; invoiced?: number; paid?: number; closed?: number; credited?: number; total_collected?: string; total_pending?: string }
+}
+
+export async function syncBilling(): Promise<{ created: number; credited: number } | null> {
+  try { const { data } = await getApi().post('/billing/sync'); return data } catch { return null }
+}
+export async function getBillingQueue(params?: { status?: string; month?: string }): Promise<BillingLine[]> {
+  try { const { data } = await getApi().get<BillingLine[]>('/billing/queue', { params }); return Array.isArray(data) ? data : [] } catch { return [] }
+}
+export async function getBillingDashboard(year: number): Promise<BillingDashboard | null> {
+  try { const { data } = await getApi().get<BillingDashboard>('/billing/dashboard', { params: { year } }); return data } catch { return null }
+}
+
 export async function getInvoiceDashboard(year: number): Promise<unknown> {
   try {
     const token = typeof window !== 'undefined' ? localStorage.getItem('admin_access_token') : null
