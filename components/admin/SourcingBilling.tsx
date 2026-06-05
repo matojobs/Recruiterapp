@@ -124,7 +124,7 @@ export default function SourcingBilling() {
               {loading ? (
                 <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">Loading…</td></tr>
               ) : queue.length === 0 ? (
-                <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">No billing lines yet. Set company fees, then "Sync from Joins".</td></tr>
+                <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">No billing lines yet. Set company fees, then use Sync from Joins.</td></tr>
               ) : queue.map((b, i) => (
                 <tr key={b.id} className={`border-b border-gray-100 dark:border-gray-700 ${i % 2 ? 'bg-slate-50/60 dark:bg-gray-700/40' : ''}`}>
                   <td className="px-3 py-2 font-medium text-gray-900 dark:text-gray-100">{b.candidate_name || '—'}</td>
