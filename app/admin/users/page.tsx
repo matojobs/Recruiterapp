@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { getUsers, createUser, updateUser, deleteUser, verifyUser, suspendUser } from '@/lib/admin/api'
+import { getUsers, createUser, updateUser, deleteUser, verifyUser, suspendUser, resetUserPassword } from '@/lib/admin/api'
 import type { AdminUser, AdminUserRole } from '@/lib/admin/types'
 import { PermissionGuard, useHasPermission } from '@/components/admin/PermissionGuard'
 import { DataTable } from '@/components/admin/DataTable'
@@ -89,6 +89,30 @@ export default function AdminUsersPage() {
                     className="rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                   >
                     Edit
+                  </button>
+                )}
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const name = `${r.firstName || ''} ${r.lastName || ''}`.trim() || r.email
+                      const pw = window.prompt(`Set a new password for ${name} (min 6 chars):`)
+                      if (pw == null) return
+                      if (pw.length < 6) { alert('Password must be at least 6 characters.'); return }
+                      setActionLoading(true)
+                      try {
+                        await resetUserPassword(r.id, pw)
+                        alert(`Password updated for ${name}.`)
+                      } catch {
+                        alert('Failed to update password.')
+                      } finally {
+                        setActionLoading(false)
+                      }
+                    }}
+                    disabled={actionLoading}
+                    className="rounded border border-indigo-300 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 dark:border-indigo-600 dark:text-indigo-400 dark:hover:bg-indigo-900/20 disabled:opacity-50"
+                  >
+                    Password
                   </button>
                 )}
                 {canDelete && (

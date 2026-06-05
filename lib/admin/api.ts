@@ -160,6 +160,11 @@ export async function deleteUser(id: number): Promise<{ success: boolean; messag
   return data
 }
 
+export async function resetUserPassword(id: number, password: string): Promise<{ success: boolean; message: string }> {
+  const { data } = await getApi().post(`/users/${id}/reset-password`, { password })
+  return data
+}
+
 export async function verifyUser(id: number): Promise<{ success: boolean; user: AdminUser }> {
   const { data } = await getApi().post(`/users/${id}/verify`)
   return data
@@ -611,7 +616,7 @@ export interface NegativeFunnelData {
   rejection: ReasonBucket
   backout: ReasonBucket
 }
-export async function getAnalyticsNegativeFunnel(params: { from: string; to: string; recruiter_id?: number }): Promise<NegativeFunnelData | null> {
+export async function getAnalyticsNegativeFunnel(params: { from: string; to: string; recruiter_id?: number; company_id?: number }): Promise<NegativeFunnelData | null> {
   try {
     const { data } = await getApi().get<NegativeFunnelData>('/analytics/negative-funnel', { params })
     return data
@@ -625,6 +630,17 @@ export interface NegativeFunnelRecruiterRow {
 export async function getAnalyticsNegativeFunnelByRecruiter(params: { from: string; to: string }): Promise<NegativeFunnelRecruiterRow[]> {
   try {
     const { data } = await getApi().get<NegativeFunnelRecruiterRow[]>('/analytics/negative-funnel/by-recruiter', { params })
+    return Array.isArray(data) ? data : []
+  } catch { return [] }
+}
+
+export interface NegativeFunnelCompanyRow {
+  company_id: number; company_name: string
+  not_interested: number; not_attended: number; rejected: number; backout: number; total: number
+}
+export async function getAnalyticsNegativeFunnelByCompany(params: { from: string; to: string }): Promise<NegativeFunnelCompanyRow[]> {
+  try {
+    const { data } = await getApi().get<NegativeFunnelCompanyRow[]>('/analytics/negative-funnel/by-company', { params })
     return Array.isArray(data) ? data : []
   } catch { return [] }
 }
