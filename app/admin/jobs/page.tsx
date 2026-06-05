@@ -114,6 +114,7 @@ function JobsContent() {
                   </button>
                 )}
                 {canEdit && (
+                  <>
                   <button
                     type="button"
                     onClick={() => setVacancyOpen(r)}
@@ -142,6 +143,7 @@ function JobsContent() {
                         }
                       }} />
                   </label>
+                  </>
                 )}
                 {canDelete && (
                   <button

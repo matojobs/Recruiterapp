@@ -8,6 +8,7 @@ import type { Application, PipelineFlow, DashboardStats } from '@/types/database
 import { EMPTY_PIPELINE_FLOW } from '@/types/database'
 import { calculatePercentage } from '@/lib/utils'
 import Button from '@/components/ui/Button'
+import LiveFunnelPanel from '@/components/reports/LiveFunnelPanel'
 import * as XLSX from 'xlsx'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -282,6 +283,9 @@ export default function ReportsPage() {
           {tab === 'company'  && <Button onClick={exportCompany}  variant="outline">Export</Button>}
         </div>
       </div>
+
+      {/* ── Live server-computed funnel (Phase 1 single source of truth) ── */}
+      <LiveFunnelPanel />
 
       {/* ── Tabs ── */}
       <div className="flex border-b border-gray-200">
