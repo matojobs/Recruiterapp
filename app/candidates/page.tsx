@@ -4,12 +4,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { getApplicationsPage, getRecruiters, getCompanies, getJobRoles, updateApplication } from '@/lib/data'
 import { getCurrentUser } from '@/lib/auth-helper'
 import type { Application, ApplicationFilters, Recruiter, Company, JobRole } from '@/types/database'
-import { calculateJoinedAge, formatJoinedAge } from '@/lib/utils'
 import ApplicationsTable from '@/components/candidates/ApplicationsTable'
 import Filters from '@/components/candidates/Filters'
 import LiveFunnelPanel from '@/components/reports/LiveFunnelPanel'
 import AddApplicationModal from '@/components/candidates/AddApplicationModal'
-import * as XLSX from 'xlsx'
 
 export default function CandidatesPage() {
   const [applications, setApplications] = useState<Application[]>([])
@@ -101,38 +99,6 @@ export default function CandidatesPage() {
     }
   }
 
-  function handleExport() {
-    const exportData = applications.map((app) => ({
-      Portal: app.portal || '',
-      'Job Role': app.job_role?.job_role || '',
-      Company: (app.job_role as any)?.company?.company_name || '',
-      'Assigned Date': app.assigned_date || '',
-      'Candidate Age': app.candidate?.age ? `${app.candidate.age} years` : '',
-      Recruiter: app.recruiter?.name || '',
-      Candidate: app.candidate?.candidate_name || '',
-      Phone: app.candidate?.phone || '',
-      'Call Date': app.call_date || '',
-      'Call Status': app.call_status || '',
-      Interested: app.interested_status || '',
-      'Interview Scheduled': app.interview_scheduled ? 'Yes' : 'No',
-      'Interview Date': app.interview_date || '',
-      'Interview Status': app.interview_status || '',
-      'Selection Status': app.selection_status || '',
-      'Joining Status': app.joining_status || '',
-      'Joining Date': app.joining_date || '',
-      'Joined Age': app.joining_status === 'Joined' && app.joining_date
-        ? formatJoinedAge(calculateJoinedAge(app.joining_date))
-        : '',
-      'Followup Date': app.followup_date || '',
-      Notes: app.notes || '',
-    }))
-
-    const ws = XLSX.utils.json_to_sheet(exportData)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Applications')
-    XLSX.writeFile(wb, `candidates_${new Date().toISOString().split('T')[0]}.xlsx`)
-  }
-
   return (
     <div className="space-y-0">
       {/* Page header */}
@@ -161,7 +127,6 @@ export default function CandidatesPage() {
         jobRoles={jobRoles}
         onFilterChange={setFilters}
         onSearchChange={setSearchQuery}
-        onExport={handleExport}
         total={total}
         loading={loading}
       />
