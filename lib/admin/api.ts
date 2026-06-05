@@ -603,6 +603,21 @@ export async function getAnalyticsByCompany(params: { from: string; to: string }
   } catch { return [] }
 }
 
+export interface ReasonBucket { reasons: { reason: string; count: number }[]; total: number }
+export interface NegativeFunnelData {
+  range: { from: string; to: string }
+  not_interested: ReasonBucket
+  not_attended: ReasonBucket
+  rejection: ReasonBucket
+  backout: ReasonBucket
+}
+export async function getAnalyticsNegativeFunnel(params: { from: string; to: string }): Promise<NegativeFunnelData | null> {
+  try {
+    const { data } = await getApi().get<NegativeFunnelData>('/analytics/negative-funnel', { params })
+    return data
+  } catch { return null }
+}
+
 // ── Billing (Phase 5) ───────────────────────────────────────────────────────
 export interface BillingLine {
   id: number; application_id: number; company_id: number | null; company_name: string | null

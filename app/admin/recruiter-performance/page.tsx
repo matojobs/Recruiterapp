@@ -22,6 +22,7 @@ import type {
 } from '@/lib/admin/types'
 import PerformanceV2 from '@/components/admin/PerformanceV2'
 import QualityTab from '@/components/admin/QualityTab'
+import NegativeFunnelV2 from '@/components/admin/NegativeFunnelV2'
 
 type TabId = 'v2' | 'portal-quality' | 'company-quality' | 'dod' | 'mtd' | 'individual' | 'company' | 'negative' | 'interview-status'
 
@@ -1531,12 +1532,22 @@ export default function AdminRecruiterPerformancePage() {
 
         {/* -------------------------------------------------------- Negative Funnel */}
         {tab === 'negative' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* All four drop-off reason types (live, single source of truth) */}
+            <NegativeFunnelV2 />
+
+            <details>
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600">
+                Legacy not-interested remarks (DOD/MTD)
+              </summary>
+              <div className="mt-3 space-y-4">
             {loading && negativeFunnel === undefined && <p className="text-gray-500">Loading…</p>}
             {!loading && notImplemented(negativeFunnel) && <BackendNotImplemented />}
             {!loading && negativeFunnel != null && typeof negativeFunnel === 'object' && (
               <NegativeFunnelImproved data={negativeFunnel} />
             )}
+              </div>
+            </details>
           </div>
         )}
 
