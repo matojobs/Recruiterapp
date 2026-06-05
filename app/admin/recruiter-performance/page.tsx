@@ -20,8 +20,9 @@ import type {
   RecruiterPerformanceInterviewStatusResponse,
   NegativeFunnelRemark,
 } from '@/lib/admin/types'
+import PerformanceV2 from '@/components/admin/PerformanceV2'
 
-type TabId = 'dod' | 'mtd' | 'individual' | 'company' | 'negative' | 'interview-status'
+type TabId = 'v2' | 'dod' | 'mtd' | 'individual' | 'company' | 'negative' | 'interview-status'
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -1001,7 +1002,7 @@ const TARGETS_LS_KEY = 'admin_perf_targets'
 // ---------------------------------------------------------------------------
 
 export default function AdminRecruiterPerformancePage() {
-  const [tab, setTab] = useState<TabId>('dod')
+  const [tab, setTab] = useState<TabId>('v2')
   const [dod, setDod] = useState<RecruiterPerformanceDODResponse | null | undefined>(undefined)
   const [dodPrev, setDodPrev] = useState<RecruiterPerformanceDODResponse | null | undefined>(undefined)
   const [mtd, setMtd] = useState<RecruiterPerformanceMTDResponse | null | undefined>(undefined)
@@ -1200,6 +1201,7 @@ export default function AdminRecruiterPerformancePage() {
       <div className="flex flex-wrap gap-2">
         {(
           [
+            { id: 'v2' as TabId, label: '⚡ Performance v2 (Live)' },
             { id: 'dod' as TabId, label: 'Day Report (DOD)' },
             { id: 'mtd' as TabId, label: 'Month Report (MTD)' },
             { id: 'individual' as TabId, label: 'Individual' },
@@ -1225,6 +1227,9 @@ export default function AdminRecruiterPerformancePage() {
 
       {/* Content */}
       <div className="min-h-[200px] rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+        {/* ----------------------------------------------------- Performance v2 */}
+        {tab === 'v2' && <PerformanceV2 />}
+
         {/* ---------------------------------------------------------------- DOD */}
         {tab === 'dod' && (
           <div className="space-y-4">

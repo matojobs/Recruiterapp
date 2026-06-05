@@ -530,6 +530,55 @@ export async function getRecruiterPerformanceInterviewStatusCompany(params?: { d
   }
 }
 
+// ── Unified analytics (Phase 1/2 — single source of truth) ──────────────────
+export interface AdminFunnelResponse {
+  range: { from: string; to: string }
+  totals: {
+    sourced: number; attempts: number; connected: number; interested: number
+    not_interested: number; interview_sched: number; interview_done: number
+    selected: number; rejected: number; joined: number; backout: number; yet_to_join: number
+  }
+  rates: {
+    connect_rate: number; interest_rate: number; interview_rate: number
+    select_rate: number; join_rate: number; sourced_to_join: number
+  }
+  series?: { bucket: string; joined?: number; selected?: number; sourced?: number; attempts?: number; connected?: number; interested?: number; interview_sched?: number }[]
+}
+
+export interface RecruiterScorecard {
+  recruiter_id: number
+  recruiter_name: string
+  attempts: number; connected: number; interested: number
+  interview_sched: number; interview_done: number; selected: number; joined: number
+  active_days: number
+  connect_rate: number; interest_rate: number
+  interview_to_select: number; select_to_join: number
+  avg_attempts_per_day: number
+}
+
+export async function getAnalyticsFunnel(params: {
+  from: string; to: string; granularity?: 'none' | 'day' | 'month'
+  recruiter_id?: number; company_id?: number; portal?: string
+}): Promise<AdminFunnelResponse | null> {
+  try {
+    const { data } = await getApi().get<AdminFunnelResponse>('/analytics/funnel', { params })
+    return data
+  } catch {
+    return null
+  }
+}
+
+export async function getAnalyticsScorecards(params: {
+  from: string; to: string; company_id?: number; portal?: string
+}): Promise<RecruiterScorecard[]> {
+  try {
+    const { data } = await getApi().get<RecruiterScorecard[]>('/analytics/recruiters', { params })
+    return Array.isArray(data) ? data : []
+  } catch {
+    return []
+  }
+}
+
 export async function getInvoiceDashboard(year: number): Promise<unknown> {
   try {
     const token = typeof window !== 'undefined' ? localStorage.getItem('admin_access_token') : null
