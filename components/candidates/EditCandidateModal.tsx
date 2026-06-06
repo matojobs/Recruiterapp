@@ -9,6 +9,8 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import ReasonSelect from '@/components/ui/ReasonSelect'
 import CallButton from '@/components/ui/CallButton'
+import WhatsAppButton from '@/components/ui/WhatsAppButton'
+import { buildWhatsAppMessage, whatsappUrl } from '@/lib/whatsapp'
 import {
   NOT_INTERESTED_REASONS, NOT_ATTENDED_REASONS, REJECTION_REASONS, BACKOUT_REASONS,
 } from '@/lib/reasons'
@@ -152,8 +154,14 @@ export default function EditCandidateModal({
               <p className="text-sm text-gray-900">{(application.job_role as any)?.company?.company_name || '-'}</p>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Call Candidate</label>
-              <CallButton phone={application.candidate?.phone} variant="block" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contact Candidate</label>
+              <div className="flex flex-wrap items-center gap-3">
+                <CallButton phone={application.candidate?.phone} variant="block" />
+                {application.candidate?.phone && (() => {
+                  const msg = buildWhatsAppMessage(application)
+                  return <WhatsAppButton url={whatsappUrl(application.candidate.phone, msg)} preview={msg} />
+                })()}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Portal</label>

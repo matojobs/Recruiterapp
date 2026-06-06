@@ -5,6 +5,8 @@ import type { Application } from '@/types/database'
 import { formatDate, calculateJoinedAge, formatJoinedAge } from '@/lib/utils'
 import EditCandidateModal from './EditCandidateModal'
 import CallButton from '@/components/ui/CallButton'
+import WhatsAppButton from '@/components/ui/WhatsAppButton'
+import { buildWhatsAppMessage, whatsappUrl } from '@/lib/whatsapp'
 
 function EditIcon() {
   return (
@@ -168,9 +170,15 @@ export default function ApplicationsTable({ applications, page, limit, total, on
                       {app.candidate?.candidate_name || '—'}
                     </td>
 
-                    {/* Phone — frozen, click-to-call + QR */}
+                    {/* Phone — frozen, click-to-call + QR + WhatsApp */}
                     <td className={`px-3 py-2 sticky left-[220px] z-10 border-r border-gray-100 ${i % 2 === 1 ? 'bg-gray-50/50' : 'bg-white'} group-hover:bg-indigo-50/30 text-gray-600 whitespace-nowrap`}>
-                      <CallButton phone={app.candidate?.phone} />
+                      <div className="flex items-center gap-2">
+                        <CallButton phone={app.candidate?.phone} />
+                        {app.candidate?.phone && (() => {
+                          const msg = buildWhatsAppMessage(app)
+                          return <WhatsAppButton url={whatsappUrl(app.candidate.phone, msg)} preview={msg} />
+                        })()}
+                      </div>
                     </td>
 
                     <td className="px-3 py-2 whitespace-nowrap text-gray-700 text-xs">{(app.job_role as any)?.company?.company_name || '—'}</td>
