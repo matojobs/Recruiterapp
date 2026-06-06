@@ -9,6 +9,8 @@ import { formatDate } from '@/lib/utils'
 import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
 import EditCandidateModal from '@/components/candidates/EditCandidateModal'
 import CallButton from '@/components/ui/CallButton'
+import WhatsAppButton from '@/components/ui/WhatsAppButton'
+import { buildWhatsAppMessage, whatsappUrl } from '@/lib/whatsapp'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const todayStr = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' })
@@ -180,8 +182,13 @@ function FollowUpCard({
           </div>
           <p className="text-xs text-gray-500 mt-0.5 truncate">{companyRole(app)}</p>
 
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
             {phone && <CallButton phone={phone} />}
+            {phone && (() => {
+              const msg = buildWhatsAppMessage(app)
+              const url = whatsappUrl(phone, msg)
+              return <WhatsAppButton url={url} preview={msg} />
+            })()}
             {app.call_date && (
               <span className="text-xs text-gray-400">Last call: {formatDate(app.call_date)}</span>
             )}
