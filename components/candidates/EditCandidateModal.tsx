@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import type { Application } from '@/types/database'
+import type { Company, JobRole } from '@/types/database'
 import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
+import { getCompanies, getCompanyById } from '@/lib/data'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
@@ -47,11 +49,42 @@ export default function EditCandidateModal({
 }: EditCandidateModalProps) {
   const [formData, setFormData] = useState<Partial<Application>>({})
   const [loading, setLoading] = useState(false)
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [companyJobRoles, setCompanyJobRoles] = useState<JobRole[]>([])
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('')
+  const [loadingCompanies, setLoadingCompanies] = useState(false)
+  const [loadingJobRoles, setLoadingJobRoles] = useState(false)
+
+  // Load companies when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setLoadingCompanies(true)
+      getCompanies()
+        .then(setCompanies)
+        .catch(console.error)
+        .finally(() => setLoadingCompanies(false))
+    }
+  }, [isOpen])
+
+  // When selected company changes, fetch its job roles
+  useEffect(() => {
+    if (!selectedCompanyId) { setCompanyJobRoles([]); return }
+    let cancelled = false
+    setLoadingJobRoles(true)
+    getCompanyById(selectedCompanyId)
+      .then(({ jobRoles }) => { if (!cancelled) setCompanyJobRoles(jobRoles) })
+      .catch(() => { if (!cancelled) setCompanyJobRoles([]) })
+      .finally(() => { if (!cancelled) setLoadingJobRoles(false) })
+    return () => { cancelled = true }
+  }, [selectedCompanyId])
 
   useEffect(() => {
     if (application) {
+      const currentCompanyId = String((application.job_role as any)?.company_id || (application.job_role as any)?.company?.id || '')
+      setSelectedCompanyId(currentCompanyId)
       const callStatus = (application.call_status as string | null) === 'call connected' ? 'Connected' : (application.call_status || '')
       setFormData({
+        job_role_id: application.job_role_id ? String(application.job_role_id) : null,
         portal: application.portal || '',
         assigned_date: application.assigned_date || '',
         call_date: application.call_date || '',
@@ -146,12 +179,31 @@ export default function EditCandidateModal({
               <p className="text-sm text-gray-900">{application.candidate?.candidate_name}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Job Role</label>
-              <p className="text-sm text-gray-900">{(application.job_role as any)?.job_role || '-'}</p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+              <Select
+                value={selectedCompanyId}
+                onChange={(e) => {
+                  setSelectedCompanyId(e.target.value)
+                  setFormData((prev) => ({ ...prev, job_role_id: null }))
+                }}
+                disabled={loadingCompanies}
+                options={[
+                  { value: '', label: loadingCompanies ? 'Loading...' : 'Select Company…' },
+                  ...companies.map((c) => ({ value: String(c.id), label: c.company_name })),
+                ]}
+              />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
-              <p className="text-sm text-gray-900">{(application.job_role as any)?.company?.company_name || '-'}</p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Job Role</label>
+              <Select
+                value={formData.job_role_id ? String(formData.job_role_id) : ''}
+                onChange={(e) => setFormData((prev) => ({ ...prev, job_role_id: e.target.value || null }))}
+                disabled={!selectedCompanyId || loadingJobRoles}
+                options={[
+                  { value: '', label: !selectedCompanyId ? 'Select company first' : loadingJobRoles ? 'Loading...' : 'Select Job Role…' },
+                  ...companyJobRoles.map((jr) => ({ value: String(jr.id), label: jr.job_role })),
+                ]}
+              />
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Contact Candidate</label>

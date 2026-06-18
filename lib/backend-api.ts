@@ -357,6 +357,7 @@ export async function updateApplication(id: string, updates: Partial<Application
     created_at: string
     updated_at: string
   }>(`/applications/${id}`, {
+    ...(updates.job_role_id != null ? { job_role_id: Number(updates.job_role_id) } : {}),
     portal: updates.portal,
     assigned_date: updates.assigned_date,
     call_date: updates.call_date,
