@@ -21,3 +21,26 @@ export const CALL_STATUS_SELECT_OPTIONS = CALL_STATUS_OPTIONS.map((value) => ({
   value,
   label: value,
 }))
+
+/**
+ * Sourcing portals – single source of truth for the Portal dropdown.
+ * Keep these aligned with the canonical values stored in sourcing.applications.portal.
+ */
+export const PORTAL_OPTIONS = [
+  'WorkIndia',
+  'Job Hai',
+  'Apna',
+  'Referral',
+  'Database',
+  'Shine Data',
+] as const
+
+export type PortalOption = (typeof PORTAL_OPTIONS)[number]
+
+/**
+ * Resume/CV status captured after a candidate is marked Interested.
+ * Received → CV in hand · Pending → promised, chasing · Not Reachable → stopped picking up.
+ */
+export const RESUME_STATUS_OPTIONS = ['Received', 'Pending', 'Not Reachable'] as const
+
+export type ResumeStatusOption = (typeof RESUME_STATUS_OPTIONS)[number]

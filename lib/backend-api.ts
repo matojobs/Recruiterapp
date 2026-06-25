@@ -375,6 +375,11 @@ export async function updateApplication(id: string, updates: Partial<Application
     backout_reason: updates.backout_reason,
     hiring_manager_feedback: updates.hiring_manager_feedback,
     followup_date: updates.followup_date,
+    resume_status: updates.resume_status,
+    resume_link: updates.resume_link,
+    resume_followup_date: updates.resume_followup_date,
+    // location lives on the candidate; modal passes it as a loose top-level field
+    ...((updates as Record<string, unknown>).location !== undefined ? { location: (updates as Record<string, unknown>).location } : {}),
     notes: updates.notes,
   })
   

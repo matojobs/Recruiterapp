@@ -36,6 +36,7 @@ function Badge({ value, type }: { value: string | null | undefined; type?: strin
   else if (type === 'interview') cls = value === 'Done' ? 'bg-emerald-100 text-emerald-700' : value === 'Scheduled' ? 'bg-blue-100 text-blue-700' : value === 'Not Attended' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'
   else if (type === 'selection') cls = value === 'Selected' ? 'bg-violet-100 text-violet-700' : value === 'Not Selected' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-700'
   else if (type === 'joining') cls = value === 'Joined' ? 'bg-pink-100 text-pink-700' : value === 'Not Joined' ? 'bg-red-100 text-red-600' : value === 'Backed Out' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'
+  else if (type === 'resume') cls = value === 'Received' ? 'bg-emerald-100 text-emerald-700' : value === 'Pending' ? 'bg-amber-100 text-amber-700' : value === 'Not Reachable' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${cls}`}>{value}</span>
 }
 
@@ -57,6 +58,7 @@ const COLS = [
   { label: 'Role', width: 'min-w-[130px]' },
   { label: 'Call Status', width: 'min-w-[110px]' },
   { label: 'Interested', width: 'min-w-[90px]' },
+  { label: 'Resume', width: 'min-w-[95px]' },
   { label: 'Portal', width: 'min-w-[90px]' },
   { label: 'Assigned', width: 'min-w-[95px]' },
   { label: 'Call Date', width: 'min-w-[90px]' },
@@ -185,6 +187,7 @@ export default function ApplicationsTable({ applications, page, limit, total, on
                     <td className="px-3 py-2 whitespace-nowrap text-gray-700 text-xs">{app.job_role?.job_role || '—'}</td>
                     <td className="px-3 py-2 whitespace-nowrap"><Badge value={app.call_status} type="call" /></td>
                     <td className="px-3 py-2 whitespace-nowrap"><Badge value={app.interested_status} type="interested" /></td>
+                    <td className="px-3 py-2 whitespace-nowrap"><Badge value={app.resume_status} type="resume" /></td>
                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{app.portal || '—'}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{formatDate(app.assigned_date)}</td>
                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{formatDate(app.call_date)}</td>

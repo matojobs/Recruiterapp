@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import type { Application } from '@/types/database'
 import type { Company, JobRole } from '@/types/database'
-import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
+import { CALL_STATUS_SELECT_OPTIONS, PORTAL_OPTIONS, RESUME_STATUS_OPTIONS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { getCompanies, getCompanyById } from '@/lib/data'
 import Button from '@/components/ui/Button'
@@ -49,6 +49,7 @@ export default function EditCandidateModal({
 }: EditCandidateModalProps) {
   const [formData, setFormData] = useState<Partial<Application>>({})
   const [loading, setLoading] = useState(false)
+  const [location, setLocation] = useState('')
   const [companies, setCompanies] = useState<Company[]>([])
   const [companyJobRoles, setCompanyJobRoles] = useState<JobRole[]>([])
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('')
@@ -82,6 +83,7 @@ export default function EditCandidateModal({
     if (application) {
       const currentCompanyId = String((application.job_role as any)?.company_id || (application.job_role as any)?.company?.id || '')
       setSelectedCompanyId(currentCompanyId)
+      setLocation(application.candidate?.location || '')
       const callStatus = (application.call_status as string | null) === 'call connected' ? 'Connected' : (application.call_status || '')
       setFormData({
         job_role_id: application.job_role_id ? String(application.job_role_id) : null,
@@ -106,6 +108,9 @@ export default function EditCandidateModal({
         backout_reason: application.backout_reason || '',
         hiring_manager_feedback: application.hiring_manager_feedback || '',
         followup_date: application.followup_date || '',
+        resume_status: application.resume_status || '',
+        resume_link: application.resume_link || '',
+        resume_followup_date: application.resume_followup_date || '',
         notes: application.notes || '',
       } as Partial<Application>)
     }
@@ -144,6 +149,9 @@ export default function EditCandidateModal({
       // Handle boolean fields (form may have boolean or string 'Yes')
       updates.interview_scheduled = formData.interview_scheduled === true || (formData.interview_scheduled as unknown) === 'Yes'
       updates.turnup = formData.turnup === true || (formData.turnup as unknown) === 'Yes'
+
+      // Location lives on the candidate; pass as a loose top-level field
+      updates.location = location.trim() || null
 
       await onSave(application.id, updates)
       onClose()
@@ -217,10 +225,25 @@ export default function EditCandidateModal({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Portal</label>
-              <Input
+              <Select
                 value={formData.portal || ''}
                 onChange={(e) => setFormData({ ...formData, portal: e.target.value })}
-                placeholder="e.g., Naukri, LinkedIn"
+                options={[
+                  { value: '', label: 'Select…' },
+                  ...PORTAL_OPTIONS.map((p) => ({ value: p, label: p })),
+                  // preserve any existing non-standard portal value so it isn't lost
+                  ...(formData.portal && !(PORTAL_OPTIONS as readonly string[]).includes(formData.portal)
+                    ? [{ value: formData.portal, label: formData.portal }]
+                    : []),
+                ]}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+              <Input
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g., Ahmedabad, Gujarat"
               />
             </div>
             <div>
@@ -301,6 +324,53 @@ export default function EditCandidateModal({
                   placeholder="Select why they're not interested…"
                   required
                 />
+              </div>
+            )}
+            {/* Resume / CV tracking — only relevant once a candidate is Interested */}
+            {formData.interested_status === 'Yes' && (
+              <div className="md:col-span-2 rounded-lg border border-indigo-100 bg-indigo-50/40 p-4">
+                <h4 className="text-sm font-semibold text-gray-800 mb-3">Resume / CV</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Resume Status</label>
+                    <Select
+                      value={(formData.resume_status as string) || ''}
+                      onChange={(e) => {
+                        const newStatus = e.target.value as Application['resume_status']
+                        const updates: Partial<Application> = { resume_status: newStatus }
+                        // auto-suggest a chase date when CV is Pending
+                        if (newStatus === 'Pending' && shouldAutoSetFollowup(formData.resume_followup_date as string)) {
+                          updates.resume_followup_date = addDays(1)
+                        }
+                        setFormData({ ...formData, ...updates })
+                      }}
+                      options={[
+                        { value: '', label: 'Select…' },
+                        ...RESUME_STATUS_OPTIONS.map((s) => ({ value: s, label: s })),
+                      ]}
+                    />
+                  </div>
+                  {formData.resume_status === 'Received' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Resume Link</label>
+                      <Input
+                        value={(formData.resume_link as string) || ''}
+                        onChange={(e) => setFormData({ ...formData, resume_link: e.target.value })}
+                        placeholder="Drive / WhatsApp / file link"
+                      />
+                    </div>
+                  )}
+                  {formData.resume_status === 'Pending' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Chase CV On</label>
+                      <Input
+                        type="date"
+                        value={(formData.resume_followup_date as string) || ''}
+                        onChange={(e) => setFormData({ ...formData, resume_followup_date: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             <div>

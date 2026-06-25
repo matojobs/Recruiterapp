@@ -63,6 +63,9 @@ export interface Application {
   backout_reason: string | null;
   hiring_manager_feedback: string | null;
   followup_date: string | null;
+  resume_status: 'Received' | 'Pending' | 'Not Reachable' | null;
+  resume_link: string | null;
+  resume_followup_date: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { getCompanies, getCompanyById } from '@/lib/data'
 import type { Recruiter, Company, JobRole, Candidate } from '@/types/database'
-import { CALL_STATUS_SELECT_OPTIONS } from '@/lib/constants'
+import { CALL_STATUS_SELECT_OPTIONS, PORTAL_OPTIONS } from '@/lib/constants'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
@@ -169,6 +169,7 @@ export default function AddApplicationModal({
         email: formData.email || null,
         qualification: formData.qualification || null,
         work_exp_years: formData.work_exp_years ? Number(formData.work_exp_years) : null,
+        location: formData.location || null,
         portal_id: null as number | null,
         age: formData.age ? Number(formData.age) : null,
         date_of_birth: null as string | null,
@@ -301,10 +302,7 @@ export default function AddApplicationModal({
                   value={formData.portal}
                   onChange={(e) => setFormData({ ...formData, portal: e.target.value })}
                   options={[
-                    { value: 'WorkIndia', label: 'WorkIndia' },
-                    { value: 'Job Hai', label: 'Job Hai' },
-                    { value: 'Apna', label: 'Apna' },
-                    { value: 'Refral', label: 'Refral' },
+                    ...PORTAL_OPTIONS.map((p) => ({ value: p, label: p })),
                     { value: 'Others', label: 'Others' },
                   ]}
                   required

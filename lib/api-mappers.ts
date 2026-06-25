@@ -231,7 +231,7 @@ export function mapCandidate(backend: BackendCandidate): Candidate {
     qualification: backend.qualification,
     work_exp_years: backend.work_exp_years ?? null,
     age: ageFromBackendCandidate(backend),
-    location: null, // Backend may not return location
+    location: ((backend as unknown as Record<string, unknown>).location as string | null) ?? null,
     current_ctc: null, // Backend may not return current_ctc
     created_at: backend.created_at,
     updated_at: backend.created_at,
@@ -319,6 +319,9 @@ export function mapApplication(backend: BackendApplication): Application {
     backout_reason: backend.backout_reason ?? null,
     hiring_manager_feedback: backend.hiring_manager_feedback ?? null,
     followup_date: backend.followup_date ?? null,
+    resume_status: ((backend as unknown as Record<string, unknown>).resume_status as Application['resume_status']) ?? null,
+    resume_link: ((backend as unknown as Record<string, unknown>).resume_link as string | null) ?? null,
+    resume_followup_date: ((backend as unknown as Record<string, unknown>).resume_followup_date as string | null) ?? null,
     notes: backend.notes ?? null,
     created_at: backend.created_at,
     updated_at: backend.updated_at,
