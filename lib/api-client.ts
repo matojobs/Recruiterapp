@@ -213,6 +213,34 @@ export async function apiDelete<T>(endpoint: string): Promise<T> {
 }
 
 /**
+ * Multipart POST under /recruiter (file upload).
+ * Does NOT set Content-Type so the browser adds the multipart boundary.
+ */
+export async function apiUpload<T>(endpoint: string, formData: FormData): Promise<T> {
+  const token = getAuthToken()
+  const url = `${API_BASE_URL}/recruiter${endpoint}`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+    body: formData,
+  })
+  if (!response.ok) {
+    if (response.status === 401) {
+      clearAuthToken()
+      if (typeof window !== 'undefined') window.location.href = '/login'
+      throw new Error('Unauthorized - please login again')
+    }
+    let msg = `Upload failed: ${response.status}`
+    try {
+      const d = await response.json()
+      msg = (d as { message?: string }).message || msg
+    } catch { /* ignore */ }
+    throw new Error(msg)
+  }
+  return response.json()
+}
+
+/**
  * Job portal applications API (GET /api/applications/*, PATCH /api/applications/:id/recruiter-call).
  * Uses recruiter token; for pending list and recruiter-call submit.
  */

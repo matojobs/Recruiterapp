@@ -5,7 +5,7 @@ import type { Application } from '@/types/database'
 import type { Company, JobRole } from '@/types/database'
 import { CALL_STATUS_SELECT_OPTIONS, PORTAL_OPTIONS, RESUME_STATUS_OPTIONS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
-import { getCompanies, getCompanyById } from '@/lib/data'
+import { getCompanies, getCompanyById, uploadSourcingResume } from '@/lib/data'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
@@ -55,6 +55,22 @@ export default function EditCandidateModal({
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('')
   const [loadingCompanies, setLoadingCompanies] = useState(false)
   const [loadingJobRoles, setLoadingJobRoles] = useState(false)
+  const [uploadingResume, setUploadingResume] = useState(false)
+  const [resumeError, setResumeError] = useState<string | null>(null)
+
+  async function handleResumeUpload(file: File | undefined) {
+    if (!file) return
+    setResumeError(null)
+    setUploadingResume(true)
+    try {
+      const { url } = await uploadSourcingResume(file)
+      setFormData((prev) => ({ ...prev, resume_link: url }))
+    } catch (err) {
+      setResumeError(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setUploadingResume(false)
+    }
+  }
 
   // Load companies when modal opens
   useEffect(() => {
@@ -352,12 +368,27 @@ export default function EditCandidateModal({
                   </div>
                   {formData.resume_status === 'Received' && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Resume Link</label>
-                      <Input
-                        value={(formData.resume_link as string) || ''}
-                        onChange={(e) => setFormData({ ...formData, resume_link: e.target.value })}
-                        placeholder="Drive / WhatsApp / file link"
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Resume / CV File</label>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        onChange={(e) => handleResumeUpload(e.target.files?.[0])}
+                        disabled={uploadingResume}
+                        className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 disabled:opacity-50"
                       />
+                      <p className="mt-1 text-xs text-gray-400">PDF, DOC or DOCX · max 5MB</p>
+                      {uploadingResume && <p className="mt-1 text-xs text-indigo-600">Uploading…</p>}
+                      {resumeError && <p className="mt-1 text-xs text-red-600">{resumeError}</p>}
+                      {formData.resume_link && !uploadingResume && (
+                        <a
+                          href={formData.resume_link as string}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 inline-flex items-center text-xs font-medium text-emerald-700 hover:underline"
+                        >
+                          ✓ View uploaded CV
+                        </a>
+                      )}
                     </div>
                   )}
                   {formData.resume_status === 'Pending' && (

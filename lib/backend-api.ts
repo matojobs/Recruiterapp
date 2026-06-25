@@ -3,7 +3,7 @@
  * These functions handle API requests and transform responses to frontend format.
  */
 
-import { apiGet, apiPost, apiPatch, apiDelete, apiApplicationsRequest } from './api-client'
+import { apiGet, apiPost, apiPatch, apiDelete, apiApplicationsRequest, apiUpload } from './api-client'
 import {
   mapCompany,
   mapJobRole,
@@ -389,6 +389,16 @@ export async function updateApplication(id: string, updates: Partial<Application
 
 export async function deleteApplication(id: string): Promise<void> {
   await apiDelete(`/applications/${id}`)
+}
+
+/**
+ * Upload a candidate resume/CV (PDF/DOC/DOCX, max 5MB) to our server.
+ * Returns the absolute file URL to store in the application's resume_link.
+ */
+export async function uploadSourcingResume(file: File): Promise<{ url: string; fileName: string; size: number }> {
+  const form = new FormData()
+  form.append('file', file)
+  return apiUpload<{ url: string; fileName: string; size: number }>('/upload/resume', form)
 }
 
 // Dashboard
