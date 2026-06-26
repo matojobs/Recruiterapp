@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import * as XLSX from 'xlsx'
-import { getAdminSourcingApplications } from '@/lib/admin/api'
+import { getAdminSourcingApplications, getSourcingRecruiters, reassignSourcingApplication, type SourcingRecruiter } from '@/lib/admin/api'
 import { CALL_STATUS_OPTIONS } from '@/lib/constants'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -13,6 +13,7 @@ interface SourcingCandidate {
   company: string
   jobRole: string
   recruiter: string
+  recruiterId: number | null
   callStatus: string | null
   interestedStatus: string | null
   interviewStatus: string | null
@@ -78,6 +79,7 @@ function mapRow(app: any): SourcingCandidate {
     app.company?.name ??
     '—'
   const recruiter = app.recruiter?.name ?? app.recruiterName ?? '—'
+  const recruiterId = app.recruiter?.id ?? app.recruiter_id ?? null
 
   return {
     id: app.id,
@@ -86,6 +88,7 @@ function mapRow(app: any): SourcingCandidate {
     company,
     jobRole,
     recruiter,
+    recruiterId: recruiterId != null ? Number(recruiterId) : null,
     callStatus: app.call_status ?? null,
     interestedStatus: app.interested_status ?? null,
     interviewStatus: app.interview_status ?? null,
@@ -121,6 +124,33 @@ export default function AdminCandidatesPage() {
   const [exportFrom, setExportFrom] = useState(todayIST())
   const [exportTo, setExportTo] = useState(todayIST())
   const [exporting, setExporting] = useState(false)
+
+  // Reassign state
+  const [recruiters, setRecruiters] = useState<SourcingRecruiter[]>([])
+  const [reassignRow, setReassignRow] = useState<SourcingCandidate | null>(null)
+  const [reassignTo, setReassignTo] = useState<string>('')
+  const [reassigning, setReassigning] = useState(false)
+  const [reassignError, setReassignError] = useState<string | null>(null)
+
+  useEffect(() => {
+    getSourcingRecruiters().then(setRecruiters).catch(() => setRecruiters([]))
+  }, [])
+
+  async function handleReassign() {
+    if (!reassignRow || !reassignTo) return
+    setReassigning(true)
+    setReassignError(null)
+    try {
+      await reassignSourcingApplication(reassignRow.id, Number(reassignTo))
+      setReassignRow(null)
+      setReassignTo('')
+      await loadData()
+    } catch (err) {
+      setReassignError(err instanceof Error ? err.message : 'Reassign failed')
+    } finally {
+      setReassigning(false)
+    }
+  }
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -406,7 +436,7 @@ export default function AdminCandidatesPage() {
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  {['Candidate', 'Phone', 'Company', 'Job Role', 'Recruiter', 'Call Status', 'Interested', 'Interview', 'Selected', 'Joining', 'DOJ', 'Assigned'].map(h => (
+                  {['Candidate', 'Phone', 'Company', 'Job Role', 'Recruiter', 'Call Status', 'Interested', 'Interview', 'Selected', 'Joining', 'DOJ', 'Assigned', 'Actions'].map(h => (
                     <th
                       key={h}
                       className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap"
@@ -420,7 +450,7 @@ export default function AdminCandidatesPage() {
                 {loading ? (
                   [...Array(8)].map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      {[...Array(12)].map((_, j) => (
+                      {[...Array(13)].map((_, j) => (
                         <td key={j} className="px-4 py-3">
                           <div className="h-4 bg-gray-100 rounded w-20" />
                         </td>
@@ -429,7 +459,7 @@ export default function AdminCandidatesPage() {
                   ))
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={12} className="px-4 py-10 text-center text-sm text-gray-400">
+                    <td colSpan={13} className="px-4 py-10 text-center text-sm text-gray-400">
                       No candidates found
                     </td>
                   </tr>
@@ -462,6 +492,14 @@ export default function AdminCandidatesPage() {
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
                         {row.assignedDate ?? '—'}
                       </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <button
+                          onClick={() => { setReassignRow(row); setReassignTo(''); setReassignError(null) }}
+                          className="px-2.5 py-1 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors"
+                        >
+                          Reassign
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -493,6 +531,58 @@ export default function AdminCandidatesPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Reassign modal */}
+      {reassignRow && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h3 className="text-base font-semibold text-gray-900">Reassign Candidate</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {reassignRow.candidateName} · {reassignRow.company} ({reassignRow.jobRole})
+              </p>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div className="text-sm text-gray-600">
+                Currently assigned to <span className="font-medium text-gray-900">{reassignRow.recruiter}</span>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Reassign to</label>
+                <select
+                  value={reassignTo}
+                  onChange={e => setReassignTo(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400"
+                >
+                  <option value="">Select recruiter…</option>
+                  {recruiters
+                    .filter(r => r.id !== reassignRow.recruiterId)
+                    .map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-800">
+                This resets the candidate to a <span className="font-semibold">fresh lead</span> — call status, interview, selection, joining and resume details will be cleared for the new recruiter. Company, role and candidate details are kept.
+              </div>
+              {reassignError && <p className="text-xs text-red-600">{reassignError}</p>}
+            </div>
+            <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
+              <button
+                onClick={() => setReassignRow(null)}
+                disabled={reassigning}
+                className="px-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReassign}
+                disabled={reassigning || !reassignTo}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-500 hover:bg-primary-600 rounded-lg disabled:opacity-50"
+              >
+                {reassigning ? 'Reassigning…' : 'Reassign & Reset'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

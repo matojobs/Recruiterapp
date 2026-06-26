@@ -473,6 +473,30 @@ export async function getAdminSourcingApplications(params?: {
   }
 }
 
+export interface SourcingRecruiter {
+  id: number
+  name: string
+  email: string | null
+  is_active: boolean
+}
+
+/** Active sourcing recruiters for the reassign dropdown. */
+export async function getSourcingRecruiters(): Promise<SourcingRecruiter[]> {
+  const { data } = await getApi().get<SourcingRecruiter[]>('/sourcing/recruiters')
+  return Array.isArray(data) ? data : []
+}
+
+/** Reassign a sourcing application to another recruiter (backend resets it to a fresh lead). */
+export async function reassignSourcingApplication(
+  applicationId: string | number,
+  recruiterId: number,
+): Promise<{ success: boolean }> {
+  const { data } = await getApi().patch(`/sourcing/applications/${applicationId}/reassign`, {
+    recruiter_id: recruiterId,
+  })
+  return data as { success: boolean }
+}
+
 // —— Recruiter Performance (see docs/ADMIN_RECRUITER_PERFORMANCE_APIS.md) ——
 const RECRUITER_PERF_BASE = '/recruiter-performance'
 
