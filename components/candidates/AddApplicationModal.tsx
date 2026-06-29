@@ -136,7 +136,13 @@ export default function AddApplicationModal({
 
     // Candidate required fields
     if (!trim(formData.candidate_name)) newErrors.candidate_name = 'Candidate name is required.'
-    if (!trim(formData.phone)) newErrors.phone = 'Phone is required.'
+    // Phone: must be exactly a 10-digit Indian mobile (starts 6-9).
+    const phoneDigits = trim(formData.phone).replace(/[^0-9]/g, '')
+    if (!trim(formData.phone)) {
+      newErrors.phone = 'Phone is required.'
+    } else if (!/^[6-9]\d{9}$/.test(phoneDigits)) {
+      newErrors.phone = 'Enter a valid 10-digit mobile number (starting 6-9).'
+    }
     if (!trim(formData.qualification)) newErrors.qualification = 'Qualification is required.'
     if (!trim(formData.age)) newErrors.age = 'Age is required.'
     if (!trim(formData.location)) newErrors.location = 'Location is required.'
@@ -165,7 +171,7 @@ export default function AddApplicationModal({
 
       const candidatePayload = {
         candidate_name: formData.candidate_name,
-        phone: formData.phone,
+        phone: formData.phone.replace(/[^0-9]/g, ''),
         email: formData.email || null,
         qualification: formData.qualification || null,
         work_exp_years: formData.work_exp_years ? Number(formData.work_exp_years) : null,
@@ -237,8 +243,11 @@ export default function AddApplicationModal({
               <Input
                 label="Phone *"
                 type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="10-digit mobile"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/[^0-9]/g, '').slice(0, 10) })}
                 required
                 error={errors.phone}
               />
