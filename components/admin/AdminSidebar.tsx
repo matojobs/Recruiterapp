@@ -110,6 +110,8 @@ const navGroups: NavGroup[] = [
     items: [
       { name: 'Users', href: '/admin/users', permission: 'view_users', icon: icons.users },
       { name: 'Companies', href: '/admin/companies', permission: 'view_companies', icon: icons.companies },
+      { name: 'Job Roles', href: '/admin/job-roles', permission: 'view_companies', icon: icons.jobs },
+      { name: 'Cities', href: '/admin/cities', permission: 'view_companies', icon: icons.companies },
       { name: 'Jobs', href: '/admin/jobs', permission: 'view_jobs', icon: icons.jobs },
       { name: 'Job Applications', href: '/admin/applications', icon: icons.applications },
       { name: 'Bulk Upload', href: '/admin/bulk-upload', permission: 'bulk_operations', icon: icons.upload },

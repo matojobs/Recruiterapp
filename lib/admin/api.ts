@@ -256,6 +256,77 @@ export async function verifyCompany(id: number): Promise<{ success: boolean; com
   return data
 }
 
+// —— Master Data ——
+export type AdminMasterJobRole = {
+  id: number
+  companyId: number
+  companyName: string
+  roleName: string
+  department?: string | null
+  isActive: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type AdminCity = {
+  id: number
+  name: string
+  state?: string | null
+  isActive: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+
+export async function getMasterJobRoles(params?: {
+  search?: string
+  companyId?: number
+  isActive?: boolean
+}): Promise<{ jobRoles: AdminMasterJobRole[] }> {
+  const { data } = await getApi().get<{ jobRoles: AdminMasterJobRole[] }>('/master-data/job-roles', { params })
+  return data
+}
+
+export async function createMasterJobRole(body: {
+  companyId: number
+  roleName: string
+  department?: string
+}): Promise<{ success: boolean; jobRole: AdminMasterJobRole }> {
+  const { data } = await getApi().post('/master-data/job-roles', body)
+  return data
+}
+
+export async function updateMasterJobRole(
+  id: number,
+  body: Partial<{ companyId: number; roleName: string; department: string; isActive: boolean }>
+): Promise<{ success: boolean; jobRole: AdminMasterJobRole }> {
+  const { data } = await getApi().put(`/master-data/job-roles/${id}`, body)
+  return data
+}
+
+export async function getMasterCities(params?: {
+  search?: string
+  isActive?: boolean
+}): Promise<{ cities: AdminCity[] }> {
+  const { data } = await getApi().get<{ cities: AdminCity[] }>('/master-data/cities', { params })
+  return data
+}
+
+export async function createMasterCity(body: {
+  name: string
+  state?: string
+}): Promise<{ success: boolean; city: AdminCity }> {
+  const { data } = await getApi().post('/master-data/cities', body)
+  return data
+}
+
+export async function updateMasterCity(
+  id: number,
+  body: Partial<{ name: string; state: string; isActive: boolean }>
+): Promise<{ success: boolean; city: AdminCity }> {
+  const { data } = await getApi().put(`/master-data/cities/${id}`, body)
+  return data
+}
+
 // —— Jobs ——
 // List: query params per ADMIN_CRUD_API_REFERENCE (sort_by, sort_order, search, status, adminStatus, companyId)
 export async function getJobs(params?: {

@@ -5,13 +5,32 @@ import { cn } from '@/lib/utils'
 import indianCities from '@/lib/indian-cities.json'
 
 type CityEntry = { name: string; state: string }
-const cities = indianCities as CityEntry[]
+const staticCities = indianCities as CityEntry[]
+const DEFAULT_API_URL = process.env.VERCEL ? 'https://api.jobsmato.com/api' : 'http://localhost:5000/api'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_URL
+
+let remoteCityCache: CityEntry[] | null = null
 
 function toLabel(c: CityEntry) {
-  return `${c.name}, ${c.state}`
+  return c.state ? `${c.name}, ${c.state}` : c.name
 }
 
-function filterCities(query: string, limit: number): CityEntry[] {
+function mergeCities(remoteCities: CityEntry[]) {
+  const seen = new Set<string>()
+  const merged: CityEntry[] = []
+  for (const city of [...remoteCities, ...staticCities]) {
+    const name = (city.name || '').trim()
+    const state = (city.state || '').trim()
+    if (!name) continue
+    const key = `${name.toLowerCase()}|${state.toLowerCase()}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push({ name, state })
+  }
+  return merged
+}
+
+function filterCities(cities: CityEntry[], query: string, limit: number): CityEntry[] {
   const q = (query || '').trim().toLowerCase()
   if (!q) return cities.slice(0, limit)
   const out: CityEntry[] = []
@@ -49,15 +68,39 @@ export default function LocationDropdown({
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState(value)
   const [highlight, setHighlight] = useState(0)
+  const [remoteCities, setRemoteCities] = useState<CityEntry[]>(remoteCityCache || [])
   const containerRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
 
-  const options = filterCities(open ? input : '', MAX_OPTIONS)
+  const cities = mergeCities(remoteCities)
+  const options = filterCities(cities, open ? input : '', MAX_OPTIONS)
   const showList = open && options.length > 0
 
   useEffect(() => {
     setInput(value)
   }, [value])
+
+  useEffect(() => {
+    if (remoteCityCache) return
+    const controller = new AbortController()
+    fetch(`${API_BASE_URL}/master-data/cities`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const fetched = Array.isArray(data?.cities) ? data.cities : []
+        const clean = fetched
+          .map((city: Partial<CityEntry>) => ({
+            name: String(city.name || '').trim(),
+            state: String(city.state || '').trim(),
+          }))
+          .filter((city: CityEntry) => city.name)
+        remoteCityCache = clean
+        setRemoteCities(clean)
+      })
+      .catch(() => {
+        remoteCityCache = []
+      })
+    return () => controller.abort()
+  }, [])
 
   useEffect(() => {
     if (!showList) return
