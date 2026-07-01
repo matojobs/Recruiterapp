@@ -100,10 +100,9 @@ export default function AdminJobRolesPage() {
         companyId: Number(form.companyId),
         roleName: form.roleName.trim(),
         department: form.department.trim(),
-        isActive: form.isActive,
       }
       if (editing) {
-        await updateMasterJobRole(editing.id, payload)
+        await updateMasterJobRole(editing.id, { ...payload, isActive: form.isActive })
       } else {
         await createMasterJobRole(payload)
       }

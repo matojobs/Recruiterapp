@@ -82,10 +82,9 @@ export default function AdminCitiesPage() {
       const payload = {
         name: form.name.trim(),
         state: form.state.trim(),
-        isActive: form.isActive,
       }
       if (editing) {
-        await updateMasterCity(editing.id, payload)
+        await updateMasterCity(editing.id, { ...payload, isActive: form.isActive })
       } else {
         await createMasterCity(payload)
       }
